@@ -1,0 +1,23 @@
+{
+  "@@locale": "ru",
+  "appTitle": "Messenger",
+  "login": "Вход",
+  "register": "Регистрация",
+  "welcome": "Добро пожаловать",
+  "email": "Электронная почта",
+  "password": "Пароль",
+  "firstName": "Имя",
+  "lastName": "Фамилия",
+  "phone": "Номер телефона",
+  "profile": "Профиль",
+  "chats": "Чаты",
+  "messages": "Сообщения",
+  "edit": "Редактировать",
+  "save": "Сохранить",
+  "cancel": "Отмена",
+  "logout": "Выйти",
+  "logoutConfirmation": "Вы уверены, что хотите выйти?",
+  "createChat": "Создать чат",
+  "enterUserId": "Введите ID пользователя",
+  "invalidCredentials": "Не верное имя пользователя или пароль"
+}

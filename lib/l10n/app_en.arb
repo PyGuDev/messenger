@@ -1,0 +1,23 @@
+{
+  "@@locale": "en",
+  "appTitle": "Messenger",
+  "login": "Login",
+  "register": "Register",
+  "welcome": "Welcome",
+  "email": "Email",
+  "password": "Password",
+  "firstName": "First Name",
+  "lastName": "Last Name",
+  "phone": "Phone Number",
+  "profile": "Profile",
+  "chats": "Chats",
+  "messages": "Messages",
+  "edit": "Edit",
+  "save": "Save",
+  "cancel": "Cancel",
+  "logout": "Logout",
+  "logoutConfirmation": "Are you sure you want to logout?",
+  "createChat": "Create Chat",
+  "enterUserId": "Enter User ID",
+  "invalidCredentials": "Invalid email or password"
+}
