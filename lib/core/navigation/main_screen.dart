@@ -4,7 +4,10 @@ import 'package:messenger/features/network/presentation/bloc/network_bloc.dart';
 import 'package:messenger/features/network/presentation/bloc/network_state.dart';
 import 'package:messenger/shared/theme/app_colors.dart';
 import 'package:messenger/features/chats/presentation/screens/chats_screen.dart';
+import 'package:messenger/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:messenger/features/auth/presentation/bloc/auth_state.dart';
 import 'package:messenger/features/profile/presentation/screens/profile_screen.dart';
+import 'package:go_router/go_router.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -23,8 +26,14 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Column(
+    return BlocListener<AuthBloc, AuthState>(
+      listener: (context, state) {
+        if (state is AuthUnauthenticated) {
+          context.go('/');
+        }
+      },
+      child: Scaffold(
+        body: Column(
         children: [
           BlocBuilder<NetworkBloc, NetworkState>(
             builder: (context, state) {
@@ -76,6 +85,7 @@ class _MainScreenState extends State<MainScreen> {
             label: 'Profile',
           ),
         ],
+      ),
       ),
     );
   }
