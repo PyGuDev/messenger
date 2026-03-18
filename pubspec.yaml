@@ -45,6 +45,8 @@ dependencies:
   get_it: ^8.0.3
   connectivity_plus: ^7.0.0
   shared_preferences: ^2.5.2
+  emoji_picker_flutter: ^4.4.0
+  google_fonts: ^8.0.2
 
 dev_dependencies:
   flutter_test:

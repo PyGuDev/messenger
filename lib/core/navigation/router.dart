@@ -3,6 +3,8 @@ import '../../features/auth/presentation/screens/welcome_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/register_screen.dart';
 import '../../features/messages/presentation/screens/messages_screen.dart';
+import '../../features/chats/presentation/screens/create_chat_screen.dart';
+import '../../features/contacts/presentation/screens/create_contact_screen.dart';
 import 'main_screen.dart';
 
 final router = GoRouter(
@@ -32,8 +34,13 @@ final router = GoRouter(
         return MessagesScreen(chatId: chatId, title: title);
       },
     ),
+    GoRoute(
+      path: '/create-chat',
+      builder: (context, state) => const CreateChatScreen(),
+    ),
+    GoRoute(
+      path: '/create-contact',
+      builder: (context, state) => const CreateContactScreen(),
+    ),
   ],
 );
-
-
-

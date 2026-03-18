@@ -73,126 +73,143 @@ class _RegisterScreenState extends State<RegisterScreen> {
             }
           },
           builder: (context, state) {
-            return SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const SizedBox(height: 24),
-                    Text(
-                      l10n.register,
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 32,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Create an account to continue',
-                      style: TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 16,
-                      ),
-                    ),
-                    const SizedBox(height: 48),
-                    CustomTextField(
-                      controller: _firstNameController,
-                      hintText: 'First Name',
-                      prefixIcon: Icons.person_outline,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your first name';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    CustomTextField(
-                      controller: _lastNameController,
-                      hintText: 'Last Name',
-                      prefixIcon: Icons.person_outline,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your last name';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    CustomTextField(
-                      controller: _emailController,
-                      hintText: l10n.email,
-                      prefixIcon: Icons.email_outlined,
-                      keyboardType: TextInputType.emailAddress,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your email';
-                        }
-                        if (!value.contains('@')) {
-                          return 'Please enter a valid email';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    CustomTextField(
-                      controller: _passwordController,
-                      hintText: l10n.password,
-                      prefixIcon: Icons.lock_outline,
-                      obscureText: true,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your password';
-                        }
-                        if (value.length < 6) {
-                          return 'Password must be at least 6 characters';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    CustomTextField(
-                      controller: _confirmPasswordController,
-                      hintText: 'Confirm ${l10n.password}',
-                      prefixIcon: Icons.lock_outline,
-                      obscureText: true,
-                      validator: (value) {
-                        if (value != _passwordController.text) {
-                          return 'Passwords do not match';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 32),
-                    PrimaryButton(
-                      text: l10n.register,
-                      isLoading: state is AuthLoading,
-                      onPressed: _onRegister,
-                    ),
-                    const SizedBox(height: 24),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text(
-                          'Already have an account? ',
-                          style: TextStyle(color: AppColors.textSecondary),
+            return Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(24, 40, 24, 24),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    children: [
+                      Container(
+                        alignment: Alignment.center,
+                        child: Column(
+                          children: [
+                            Text(
+                              l10n.register,
+                              style: const TextStyle(
+                                color: AppColors.textPrimary,
+                                fontFamily: 'Inter',
+                                fontSize: 28,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: -0.5,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'Create an account to continue',
+                              style: TextStyle(
+                                color: AppColors.textSecondary,
+                                fontFamily: 'Inter',
+                                fontSize: 15,
+                                fontWeight: FontWeight.normal,
+                              ),
+                            ),
+                          ],
                         ),
-                        GestureDetector(
-                          onTap: () => context.pushReplacement('/login'),
-                          child: Text(
-                            l10n.login,
-                            style: const TextStyle(
-                              color: AppColors.accentBlue,
-                              fontWeight: FontWeight.w600,
+                      ),
+                      const SizedBox(height: 20),
+                      CustomTextField(
+                        controller: _firstNameController,
+                        hintText: 'First Name',
+                        prefixIcon: Icons.person_outline,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter your first name';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      CustomTextField(
+                        controller: _lastNameController,
+                        hintText: 'Last Name',
+                        prefixIcon: Icons.person_outline,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter your last name';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      CustomTextField(
+                        controller: _emailController,
+                        hintText: l10n.email,
+                        prefixIcon: Icons.email_outlined,
+                        keyboardType: TextInputType.emailAddress,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter your email';
+                          }
+                          if (!value.contains('@')) {
+                            return 'Please enter a valid email';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      CustomTextField(
+                        controller: _passwordController,
+                        hintText: l10n.password,
+                        prefixIcon: Icons.lock_outline,
+                        obscureText: true,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter your password';
+                          }
+                          if (value.length < 6) {
+                            return 'Password must be at least 6 characters';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      CustomTextField(
+                        controller: _confirmPasswordController,
+                        hintText: 'Confirm ${l10n.password}',
+                        prefixIcon: Icons.lock_outline,
+                        obscureText: true,
+                        validator: (value) {
+                          if (value != _passwordController.text) {
+                            return 'Passwords do not match';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 20),
+                      PrimaryButton(
+                        text: l10n.register,
+                        isLoading: state is AuthLoading,
+                        onPressed: _onRegister,
+                      ),
+                      const SizedBox(height: 24),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text(
+                            'Already have an account? ',
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontFamily: 'Inter',
+                              fontSize: 15,
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                          GestureDetector(
+                            onTap: () => context.pushReplacement('/login'),
+                            child: Text(
+                              l10n.login,
+                              style: const TextStyle(
+                                color: AppColors.accentBlue,
+                                fontWeight: FontWeight.w600,
+                                fontFamily: 'Inter',
+                                fontSize: 15,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );

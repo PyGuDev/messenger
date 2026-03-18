@@ -7,7 +7,7 @@ import 'package:messenger/shared/theme/app_colors.dart';
 import 'package:messenger/features/chats/presentation/bloc/chats_bloc.dart';
 import 'package:messenger/features/chats/presentation/bloc/chats_event.dart';
 import 'package:messenger/features/chats/presentation/bloc/chats_state.dart';
-import 'package:messenger/shared/widgets/custom_text_field.dart';
+
 import 'package:messenger/shared/widgets/error_display.dart';
 
 class ChatsScreen extends StatefulWidget {
@@ -39,38 +39,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
     }
   }
 
-  void _showCreateChatDialog() {
-    final l10n = AppLocalizations.of(context)!;
-    final TextEditingController userIdController = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.bgPrimary,
-        title: Text(l10n.createChat, style: const TextStyle(color: AppColors.textPrimary)),
-        content: CustomTextField(
-          controller: userIdController,
-          hintText: l10n.enterUserId,
-          prefixIcon: Icons.person,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(l10n.cancel, style: const TextStyle(color: AppColors.textSecondary)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.accentBlue),
-            onPressed: () {
-              if (userIdController.text.isNotEmpty) {
-                context.read<ChatsBloc>().add(CreateChat(userIdController.text));
-                Navigator.pop(ctx);
-              }
-            },
-            child: Text(l10n.save, style: const TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
+
 
   String _formatTime(DateTime? time) {
     if (time == null) return '';
@@ -92,9 +61,26 @@ class _ChatsScreenState extends State<ChatsScreen> {
     return Scaffold(
       backgroundColor: AppColors.bgPrimary,
       appBar: AppBar(
-        title: Text(l10n.chats, style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
+        title: Text(
+          'Messenger',
+          style: const TextStyle(
+            color: AppColors.textPrimary,
+            fontFamily: 'Inter',
+            fontSize: 28,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.5,
+          ),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.search, color: AppColors.textTertiary, size: 22),
+            onPressed: () {},
+          ),
+          const SizedBox(width: 8),
+        ],
         backgroundColor: AppColors.bgPrimary,
         elevation: 0,
+        centerTitle: false,
       ),
       body: BlocConsumer<ChatsBloc, ChatsState>(
         listener: (context, state) {
@@ -124,6 +110,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
               },
               child: ListView.separated(
                 controller: _scrollController,
+                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
                 itemCount: state.hasReachedMax ? state.chats.length : state.chats.length + 1,
                 separatorBuilder: (context, index) => const Divider(height: 1, color: AppColors.borderDefault),
                 itemBuilder: (context, index) {
@@ -136,54 +123,87 @@ class _ChatsScreenState extends State<ChatsScreen> {
                     );
                   }
                   final chat = state.chats[index];
-                  return ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                    leading: CircleAvatar(
-                      backgroundColor: AppColors.accentBlueLight,
-                      child: Text(
-                        chat.displayName.isNotEmpty ? chat.displayName[0].toUpperCase() : '?',
-                        style: const TextStyle(color: AppColors.accentBlue, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    title: Text(
-                      chat.displayName,
-                      style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold),
-                    ),
-                    subtitle: chat.lastMessage != null
-                        ? Text(
-                            chat.lastMessage!.body,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(color: AppColors.textSecondary),
-                          )
-                        : null,
-                    trailing: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          _formatTime(chat.lastMessage?.createdAt),
-                          style: const TextStyle(color: AppColors.textTertiary, fontSize: 12),
-                        ),
-                        if (chat.unreadCount > 0) ...[
-                          const SizedBox(height: 4),
-                          Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: const BoxDecoration(
-                              color: AppColors.accentBlue,
-                              shape: BoxShape.circle,
-                            ),
+                  return SizedBox(
+                    height: 72,
+                    child: Center(
+                      child: ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: AppColors.accentBlueLight,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Center(
                             child: Text(
-                              '${chat.unreadCount}',
-                              style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                              chat.displayName.isNotEmpty ? chat.displayName[0].toUpperCase() : '?',
+                              style: const TextStyle(
+                                color: AppColors.accentBlue,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                              ),
                             ),
                           ),
-                        ],
-                      ],
+                        ),
+                        title: Text(
+                          chat.displayName,
+                          style: const TextStyle(
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.w600,
+                            fontFamily: 'Inter',
+                            fontSize: 16,
+                          ),
+                        ),
+                        subtitle: chat.lastMessage != null
+                            ? Text(
+                                chat.lastMessage!.body,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontFamily: 'Inter',
+                                  fontSize: 14,
+                                ),
+                              )
+                            : null,
+                        trailing: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              _formatTime(chat.lastMessage?.createdAt),
+                              style: const TextStyle(
+                                color: AppColors.textTertiary,
+                                fontFamily: 'Inter',
+                                fontSize: 12,
+                              ),
+                            ),
+                            if (chat.unreadCount > 0) ...[
+                              const SizedBox(height: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: AppColors.accentBlue,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  '${chat.unreadCount}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        onTap: () {
+                          context.push('/chat/${chat.id}', extra: chat.displayName);
+                        },
+                      ),
                     ),
-                    onTap: () {
-                      context.push('/chat/${chat.id}', extra: chat.displayName);
-                    },
                   );
                 },
               ),
@@ -198,8 +218,9 @@ class _ChatsScreenState extends State<ChatsScreen> {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _showCreateChatDialog,
+        onPressed: () => context.push('/create-chat'),
         backgroundColor: AppColors.accentBlue,
+        shape: const CircleBorder(),
         child: const Icon(Icons.add, color: Colors.white),
       ),
     );

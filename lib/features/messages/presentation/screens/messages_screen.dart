@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' as foundation;
+import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
+import 'package:google_fonts/google_fonts.dart' hide Config;
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:messenger/l10n/app_localizations.dart';
+import 'package:go_router/go_router.dart';
+
 import 'package:intl/intl.dart';
 import 'package:messenger/shared/theme/app_colors.dart';
 import 'package:messenger/features/messages/presentation/bloc/messages_bloc.dart';
 import 'package:messenger/features/messages/presentation/bloc/messages_event.dart';
 import 'package:messenger/features/messages/presentation/bloc/messages_state.dart';
 import '../../data/models/message_model.dart';
-import 'package:messenger/shared/widgets/custom_text_field.dart';
+
 import 'package:messenger/shared/widgets/error_display.dart';
 
 class MessagesScreen extends StatefulWidget {
@@ -24,6 +28,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _isSendButtonActive = false;
+  bool _emojiVisible = false;
 
   @override
   void initState() {
@@ -176,10 +181,73 @@ class _MessagesScreenState extends State<MessagesScreen> {
     return Scaffold(
       backgroundColor: AppColors.bgPrimary,
       appBar: AppBar(
-        title: Text(widget.title, style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
+        titleSpacing: 0,
+        leadingWidth: 48,
+        leading: IconButton(
+          padding: EdgeInsets.zero,
+          icon: const Icon(Icons.arrow_back, color: AppColors.accentBlue),
+          onPressed: () => context.pop(),
+        ),
+        title: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: const BoxDecoration(
+                color: Color(0xFF3B82F6),
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: Text(
+                  widget.title.isNotEmpty ? widget.title[0].toUpperCase() : '?',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.title,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontFamily: 'Inter',
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const Text(
+                    'Online',
+                    style: TextStyle(
+                      color: AppColors.successGreen,
+                      fontFamily: 'Inter',
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.phone, color: AppColors.textSecondary, size: 22),
+            onPressed: () {},
+          ),
+          IconButton(
+            icon: const Icon(Icons.more_vert, color: AppColors.textSecondary, size: 22),
+            onPressed: () {},
+          ),
+          const SizedBox(width: 4),
+        ],
         backgroundColor: AppColors.bgPrimary,
-        elevation: 1,
-        iconTheme: const IconThemeData(color: AppColors.textPrimary),
+        elevation: 0,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(color: AppColors.borderDefault, height: 1),
+        ),
       ),
       body: Column(
         children: [
@@ -187,7 +255,6 @@ class _MessagesScreenState extends State<MessagesScreen> {
             child: BlocConsumer<MessagesBloc, MessagesState>(
               listener: (context, state) {
                 if (state is MessagesLoaded) {
-                  // Mark as read when messages load
                   context.read<MessagesBloc>().add(MarkMessagesAsRead(chatId: widget.chatId, upTo: DateTime.now()));
                 }
               },
@@ -197,7 +264,8 @@ class _MessagesScreenState extends State<MessagesScreen> {
                 } else if (state is MessagesLoaded) {
                   return ListView.builder(
                     controller: _scrollController,
-                    reverse: true, // Display from bottom to top
+                    reverse: true,
+                    padding: const EdgeInsets.all(16),
                     itemCount: state.messages.length + (state.hasReachedMax ? 0 : 1),
                     itemBuilder: (context, index) {
                       if (index >= state.messages.length) {
@@ -220,6 +288,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
             ),
           ),
           _buildMessageInput(),
+          _buildEmojiPicker(),
         ],
       ),
     );
@@ -227,31 +296,137 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
   Widget _buildMessageInput() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
-      color: AppColors.bgPrimary,
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 32),
+      decoration: const BoxDecoration(
+        color: AppColors.bgPrimary,
+        border: Border(top: BorderSide(color: AppColors.borderDefault)),
+      ),
       child: SafeArea(
         child: Row(
           children: [
+            const Icon(Icons.attach_file, color: AppColors.textTertiary, size: 24),
+            const SizedBox(width: 10),
             Expanded(
-              child: CustomTextField(
-                controller: _textController,
-                hintText: AppLocalizations.of(context)!.messages,
-                onSubmitted: (_) => _sendMessage(),
-                // no prefix icon here to make more space for text
+              child: Container(
+                height: 44,
+                decoration: BoxDecoration(
+                  color: AppColors.bgInput,
+                  borderRadius: BorderRadius.circular(22),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _emojiVisible = !_emojiVisible;
+                        });
+                        if (_emojiVisible) {
+                          FocusScope.of(context).unfocus();
+                        }
+                      },
+                      child: Icon(
+                        _emojiVisible ? Icons.keyboard : Icons.sentiment_satisfied_alt,
+                        color: _emojiVisible ? AppColors.accentBlue : AppColors.textTertiary,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: _textController,
+                        onSubmitted: (_) => _sendMessage(),
+                        decoration: const InputDecoration(
+                          hintText: 'Message...',
+                          hintStyle: TextStyle(
+                            color: AppColors.textTertiary,
+                            fontFamily: 'Inter',
+                            fontSize: 15,
+                          ),
+                          border: InputBorder.none,
+                          isDense: true,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontFamily: 'Inter',
+                          fontSize: 15,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(width: 8),
-            Container(
-              decoration: BoxDecoration(
-                color: _isSendButtonActive ? AppColors.accentBlue : AppColors.borderDefault,
-                shape: BoxShape.circle,
-              ),
-              child: IconButton(
-                icon: const Icon(Icons.send, color: Colors.white),
-                onPressed: _isSendButtonActive ? _sendMessage : null,
+            const SizedBox(width: 10),
+            GestureDetector(
+              onTap: _isSendButtonActive ? _sendMessage : null,
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: _isSendButtonActive ? AppColors.accentBlue : AppColors.borderDefault,
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: Icon(
+                    _isSendButtonActive ? Icons.send : Icons.mic,
+                    color: _isSendButtonActive ? Colors.white : AppColors.textTertiary,
+                    size: 20,
+                  ),
+                ),
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmojiPicker() {
+    return Offstage(
+      offstage: !_emojiVisible,
+      child: EmojiPicker(
+        textEditingController: _textController,
+        onEmojiSelected: (Category? category, Emoji emoji) {
+          setState(() {
+            _isSendButtonActive = _textController.text.trim().isNotEmpty;
+          });
+        },
+        config: Config(
+          height: 256,
+          checkPlatformCompatibility: false,
+          emojiTextStyle: GoogleFonts.notoColorEmoji(
+            fontSize: 28,
+          ),
+          emojiViewConfig: EmojiViewConfig(
+            emojiSizeMax: 28 *
+                (foundation.defaultTargetPlatform == TargetPlatform.iOS
+                    ? 1.2
+                    : 1.0),
+            columns: 7,
+            backgroundColor: AppColors.bgPrimary,
+            noRecents: const Text(
+              'Нет недавних эмодзи',
+              style: TextStyle(fontSize: 16, color: AppColors.textTertiary),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          categoryViewConfig: CategoryViewConfig(
+            backgroundColor: AppColors.bgPrimary,
+            indicatorColor: AppColors.accentBlue,
+            iconColorSelected: AppColors.accentBlue,
+            iconColor: AppColors.textTertiary,
+          ),
+          bottomActionBarConfig: const BottomActionBarConfig(
+            showBackspaceButton: true,
+            showSearchViewButton: true,
+          ),
+          searchViewConfig: SearchViewConfig(
+            backgroundColor: AppColors.bgPrimary,
+            buttonIconColor: AppColors.textTertiary,
+            hintText: 'Поиск эмодзи...',
+          ),
         ),
       ),
     );
