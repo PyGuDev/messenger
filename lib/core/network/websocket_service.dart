@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../security/token_storage.dart';
+import '../network/network_module.dart';
 import 'network_info.dart';
 
 enum WebSocketStatus { connected, disconnected, connecting }
@@ -10,7 +11,7 @@ enum WebSocketStatus { connected, disconnected, connecting }
 class WebSocketService {
   final TokenStorage _tokenStorage;
   final NetworkInfo _networkInfo;
-  final String _baseUrl = 'ws://127.0.0.1:8003/ws';
+  final String _baseUrl = NetworkModule.wsBaseUrl;
 
   WebSocketChannel? _channel;
   StreamController<Map<String, dynamic>>? _eventController;

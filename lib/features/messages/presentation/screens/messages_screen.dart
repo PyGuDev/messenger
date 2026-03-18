@@ -96,8 +96,9 @@ class _MessagesScreenState extends State<MessagesScreen> {
     }
   }
 
-  Widget _buildMessageBubble(MessageModel message, String currentUserId) {
+  Widget _buildMessageBubble(MessageModel message, String currentUserId, Map<String, String> userNames) {
     final isMine = message.authorId == currentUserId;
+    final authorName = userNames[message.authorId] ?? 'User';
 
     return Align(
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
@@ -121,7 +122,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
           children: [
             if (!isMine) ...[
               Text(
-                'User ${message.authorId}', // Placeholder name
+                authorName,
                 style: const TextStyle(
                   color: AppColors.accentBlue,
                   fontWeight: FontWeight.bold,
@@ -274,7 +275,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                           child: Center(child: CircularProgressIndicator()),
                         );
                       }
-                      return _buildMessageBubble(state.messages[index], state.currentUserId);
+                      return _buildMessageBubble(state.messages[index], state.currentUserId, state.userNames);
                     },
                   );
                 } else if (state is MessagesError) {

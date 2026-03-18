@@ -40,7 +40,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         'password': event.password,
       });
       
-      final data = response.data;
+      final responseData = response.data;
+      final data = responseData['data'] ?? responseData;
       final accessToken = data['access_token'];
       final refreshToken = data['refresh_token'];
       final userId = (data['user_id'] ?? data['id']).toString();
@@ -73,7 +74,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         'password': event.password,
       });
       
-      final data = response.data;
+      final responseData = response.data;
+      final data = responseData['data'] ?? responseData;
       final accessToken = data['access_token'];
       final refreshToken = data['refresh_token'];
       final userId = (data['user_id'] ?? data['id']).toString();

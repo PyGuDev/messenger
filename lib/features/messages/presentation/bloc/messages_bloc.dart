@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:dio/dio.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../core/network/websocket_service.dart';
+import '../../../../core/network/user_service.dart';
 import 'package:messenger/core/security/token_storage.dart';
 import '../../data/models/message_model.dart';
 import 'messages_event.dart';
@@ -12,11 +13,12 @@ class MessagesBloc extends Bloc<MessagesEvent, MessagesState> {
   final Dio _dio;
   final WebSocketService _wsService;
   final TokenStorage _tokenStorage;
+  final UserService _userService;
   StreamSubscription? _wsSubscription;
   
   String? _currentUserId;
 
-  MessagesBloc(this._dio, this._wsService, this._tokenStorage) : super(MessagesInitial()) {
+  MessagesBloc(this._dio, this._wsService, this._tokenStorage, this._userService) : super(MessagesInitial()) {
     on<LoadMessages>(_onLoadMessages);
     on<LoadMoreMessages>(_onLoadMoreMessages);
     on<SendMessage>(_onSendMessage);
@@ -35,10 +37,46 @@ class MessagesBloc extends Bloc<MessagesEvent, MessagesState> {
     return super.close();
   }
 
+  /// Get the current user ID — first try TokenStorage, then extract from JWT.
+  Future<String?> _getCurrentUserId() async {
+    if (_currentUserId != null) return _currentUserId;
+
+    _currentUserId = await _tokenStorage.getUserId();
+    if (_currentUserId != null) return _currentUserId;
+
+    // Fallback: extract from JWT token
+    final token = await _tokenStorage.getAccessToken();
+    if (token != null) {
+      _currentUserId = UserService.extractUserIdFromToken(token);
+      if (_currentUserId != null) {
+        await _tokenStorage.saveUserId(_currentUserId!);
+      }
+    }
+    return _currentUserId;
+  }
+
+  /// Resolve display names for unique author IDs in the messages.
+  Future<Map<String, String>> _resolveUserNames(
+    List<MessageModel> messages,
+    Map<String, String> existingNames,
+  ) async {
+    final names = Map<String, String>.from(existingNames);
+    final unknownIds = messages
+        .map((m) => m.authorId)
+        .toSet()
+        .where((id) => !names.containsKey(id));
+
+    for (final userId in unknownIds) {
+      final profile = await _userService.getUser(userId);
+      names[userId] = profile.displayName;
+    }
+    return names;
+  }
+
   Future<void> _onLoadMessages(LoadMessages event, Emitter<MessagesState> emit) async {
     emit(MessagesLoading());
     try {
-      _currentUserId ??= await _tokenStorage.getUserId();
+      await _getCurrentUserId();
       
       final response = await _dio.get('/chats/${event.chatId}/messages', queryParameters: {
         'limit': 50,
@@ -47,11 +85,14 @@ class MessagesBloc extends Bloc<MessagesEvent, MessagesState> {
       final Map<String, dynamic> responseData = response.data;
       final List<dynamic> messagesData = responseData['data']['messages'];
       final messages = messagesData.map((json) => MessageModel.fromJson(json)).toList();
+
+      final userNames = await _resolveUserNames(messages, {});
       
       emit(MessagesLoaded(
         messages: messages,
         currentUserId: _currentUserId ?? '',
         hasReachedMax: messagesData.length < 50,
+        userNames: userNames,
       ));
     } catch (e) {
       emit(MessagesError(e.toString()));
@@ -73,10 +114,13 @@ class MessagesBloc extends Bloc<MessagesEvent, MessagesState> {
         final Map<String, dynamic> responseData = response.data;
         final List<dynamic> newMessagesData = responseData['data']['messages'];
         final newMessages = newMessagesData.map((json) => MessageModel.fromJson(json)).toList();
+
+        final userNames = await _resolveUserNames(newMessages, currentState.userNames);
         
         emit(currentState.copyWith(
           messages: List.from(currentState.messages)..addAll(newMessages),
           hasReachedMax: newMessagesData.length < 50,
+          userNames: userNames,
         ));
       } catch (e) {
         // Silently fail pagination error for now
@@ -196,8 +240,11 @@ class MessagesBloc extends Bloc<MessagesEvent, MessagesState> {
           
           final newMessage = MessageModel.fromJson(messageData);
           final updatedMessages = List<MessageModel>.from(currentState.messages)..insert(0, newMessage);
+
+          // Resolve name for new author if needed
+          final userNames = await _resolveUserNames([newMessage], currentState.userNames);
           
-          emit(currentState.copyWith(messages: updatedMessages));
+          emit(currentState.copyWith(messages: updatedMessages, userNames: userNames));
         }
       }
     }

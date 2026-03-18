@@ -2,6 +2,7 @@ import 'package:get_it/get_it.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../security/token_storage.dart';
 import '../network/network_module.dart';
+import '../network/user_service.dart';
 import 'package:dio/dio.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/profile/presentation/bloc/profile_bloc.dart';
@@ -51,6 +52,11 @@ Future<void> init() async {
     () => WebSocketService(sl<TokenStorage>(), sl<NetworkInfo>()),
   );
 
+  // Services
+  sl.registerLazySingleton<UserService>(
+    () => UserService(sl<Dio>(instanceName: 'authDio')),
+  );
+
   // Bloc
   sl.registerFactory<NetworkBloc>(
     () => NetworkBloc(sl()),
@@ -62,10 +68,10 @@ Future<void> init() async {
     () => ProfileBloc(sl(instanceName: 'authDio')),
   );
   sl.registerFactory<ChatsBloc>(
-    () => ChatsBloc(sl(instanceName: 'chatDio'), sl()),
+    () => ChatsBloc(sl(instanceName: 'chatDio'), sl(), sl<UserService>(), sl<TokenStorage>()),
   );
   sl.registerFactory<MessagesBloc>(
-    () => MessagesBloc(sl(instanceName: 'chatDio'), sl(), sl()),
+    () => MessagesBloc(sl(instanceName: 'chatDio'), sl(), sl(), sl<UserService>()),
   );
 }
 

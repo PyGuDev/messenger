@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:dio/dio.dart';
 import '../../../../core/network/websocket_service.dart';
+import '../../../../core/network/user_service.dart';
+import '../../../../core/security/token_storage.dart';
 import '../../data/models/chat_model.dart';
 import 'chats_event.dart';
 import 'chats_state.dart';
@@ -9,9 +11,11 @@ import 'chats_state.dart';
 class ChatsBloc extends Bloc<ChatsEvent, ChatsState> {
   final Dio _dio;
   final WebSocketService _wsService;
+  final UserService _userService;
+  final TokenStorage _tokenStorage;
   StreamSubscription? _wsSubscription;
 
-  ChatsBloc(this._dio, this._wsService) : super(ChatsInitial()) {
+  ChatsBloc(this._dio, this._wsService, this._userService, this._tokenStorage) : super(ChatsInitial()) {
     on<LoadChats>(_onLoadChats);
     on<LoadMoreChats>(_onLoadMoreChats);
     on<CreateChat>(_onCreateChat);
@@ -28,6 +32,64 @@ class ChatsBloc extends Bloc<ChatsEvent, ChatsState> {
     return super.close();
   }
 
+  /// Get the current user ID — first try TokenStorage, then extract from JWT.
+  Future<String?> _getCurrentUserId() async {
+    var userId = await _tokenStorage.getUserId();
+    if (userId != null) return userId;
+
+    // Fallback: extract from JWT token
+    final token = await _tokenStorage.getAccessToken();
+    if (token != null) {
+      userId = UserService.extractUserIdFromToken(token);
+      if (userId != null) {
+        // Save it for future use
+        await _tokenStorage.saveUserId(userId);
+      }
+    }
+    return userId;
+  }
+
+  /// For personal chats (type=1), resolve the other member's name.
+  /// If members are empty in the chat list, fetch individual chat details.
+  Future<List<ChatModel>> _resolvePersonalChatNames(List<ChatModel> chats) async {
+    final currentUserId = await _getCurrentUserId();
+    if (currentUserId == null) return chats;
+
+    final resolved = <ChatModel>[];
+    for (final chat in chats) {
+      if (chat.type == 1 && (chat.title == null || chat.title!.isEmpty)) {
+        var members = chat.members;
+
+        // If members list is empty, fetch individual chat details
+        if (members.isEmpty) {
+          try {
+            final detailResponse = await _dio.get('/chats/${chat.id}');
+            final detailData = detailResponse.data as Map<String, dynamic>;
+            final chatData = detailData['data'] as Map<String, dynamic>? ?? detailData;
+            final membersList = chatData['members'] as List<dynamic>? ?? [];
+            members = membersList
+                .map((e) => MemberModel.fromJson(e as Map<String, dynamic>))
+                .toList();
+          } catch (_) {
+            // If fetching details fails, keep empty members
+          }
+        }
+
+        // Find the other member
+        final otherMember = members.where((m) => m.userId != currentUserId);
+        if (otherMember.isNotEmpty) {
+          final profile = await _userService.getUser(otherMember.first.userId);
+          resolved.add(chat.copyWith(title: profile.displayName));
+        } else {
+          resolved.add(chat);
+        }
+      } else {
+        resolved.add(chat);
+      }
+    }
+    return resolved;
+  }
+
   Future<void> _onLoadChats(LoadChats event, Emitter<ChatsState> emit) async {
     emit(ChatsLoading());
     try {
@@ -38,7 +100,9 @@ class ChatsBloc extends Bloc<ChatsEvent, ChatsState> {
       
       final Map<String, dynamic> responseData = response.data;
       final List<dynamic> chatsData = responseData['data']['chats'];
-      final chats = chatsData.map((json) => ChatModel.fromJson(json)).toList();
+      var chats = chatsData.map((json) => ChatModel.fromJson(json)).toList();
+
+      chats = await _resolvePersonalChatNames(chats);
       
       emit(ChatsLoaded(chats, hasReachedMax: chats.length < 20));
     } catch (e) {
@@ -60,7 +124,9 @@ class ChatsBloc extends Bloc<ChatsEvent, ChatsState> {
 
         final Map<String, dynamic> responseData = response.data;
         final List<dynamic> newChatsData = responseData['data']['chats'];
-        final newChats = newChatsData.map((json) => ChatModel.fromJson(json)).toList();
+        var newChats = newChatsData.map((json) => ChatModel.fromJson(json)).toList();
+
+        newChats = await _resolvePersonalChatNames(newChats);
 
         emit(currentState.copyWith(
           chats: List.from(currentState.chats)..addAll(newChats),
