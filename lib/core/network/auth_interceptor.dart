@@ -7,11 +7,12 @@ import '../security/token_storage.dart';
 class AuthInterceptor extends Interceptor {
   final TokenStorage _tokenStorage;
   final Dio _refreshDio;
+  final void Function() onTokenExpired;
 
   bool _isRefreshing = false;
   Completer<String?>? _refreshCompleter;
 
-  AuthInterceptor(this._tokenStorage, this._refreshDio);
+  AuthInterceptor(this._tokenStorage, this._refreshDio, {required this.onTokenExpired});
 
   @override
   void onRequest(
@@ -45,11 +46,14 @@ class AuthInterceptor extends Interceptor {
           return handler.resolve(retryResponse);
         } else {
           print('[AuthInterceptor] Refresh returned null token. Proceeding with error.');
+          await _tokenStorage.clearTokens();
+          onTokenExpired();
         }
       } catch (e) {
         print('[AuthInterceptor] Refresh failed with error: $e');
         // Refresh failed — clear tokens and potentially redirect to login
         await _tokenStorage.clearTokens();
+        onTokenExpired();
       }
     }
     return handler.next(err);

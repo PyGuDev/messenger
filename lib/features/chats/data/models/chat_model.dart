@@ -38,10 +38,10 @@ class LastMessageModel extends Equatable {
 
   factory LastMessageModel.fromJson(Map<String, dynamic> json) {
     return LastMessageModel(
-      id: (json['id'] as String?) ?? '',
-      authorId: (json['author_id'] as String?) ?? '',
-      body: (json['body'] as String?) ?? '',
-      createdAt: DateTime.parse((json['created_at'] as String?) ?? DateTime.now().toIso8601String()),
+      id: (json['id'] ?? json['ID'])?.toString() ?? '',
+      authorId: (json['author_id'] ?? json['AuthorID'])?.toString() ?? '',
+      body: (json['body'] ?? json['Body'])?.toString() ?? '',
+      createdAt: DateTime.tryParse((json['created_at'] ?? json['CreatedAt'])?.toString() ?? '') ?? DateTime.now(),
     );
   }
 

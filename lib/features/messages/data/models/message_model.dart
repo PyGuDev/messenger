@@ -64,18 +64,18 @@ class MessageModel {
 
   factory MessageModel.fromJson(Map<String, dynamic> json) {
     return MessageModel(
-      id: json['id'] as String,
-      chatId: json['chat_id'] as String,
-      authorId: json['author_id'] as String,
-      text: json['body'] as String,
-      createdAt: DateTime.parse(json['created_at'] as String),
-      updatedAt: DateTime.parse((json['updated_at'] as String?) ?? (json['created_at'] as String)),
+      id: (json['id'] ?? json['ID'])?.toString() ?? '',
+      chatId: (json['chat_id'] ?? json['ChatID'])?.toString() ?? '',
+      authorId: (json['author_id'] ?? json['AuthorID'] ?? json['sender_id'] ?? '').toString(),
+      text: (json['body'] ?? json['Body'])?.toString() ?? '',
+      createdAt: DateTime.tryParse((json['created_at'] ?? json['CreatedAt'])?.toString() ?? '') ?? DateTime.now(),
+      updatedAt: DateTime.tryParse((json['updated_at'] ?? json['UpdatedAt'] ?? json['created_at'] ?? json['CreatedAt'])?.toString() ?? '') ?? DateTime.now(),
       // status is logic-dependent, API doesn't provide it in this form
       status: MessageStatus.sent, 
-      clientMessageId: json['client_message_id'] as String?,
-      replyToMessageId: json['reply_to_message_id'] as String?,
-      forwardedFromMessageId: json['forwarded_from_message_id'] as String?,
-      attachedContent: (json['attached_content'] as List<dynamic>?)
+      clientMessageId: (json['client_message_id'] ?? json['ClientMessageID'])?.toString(),
+      replyToMessageId: (json['reply_to_message_id'] ?? json['ReplyToMessageID'])?.toString(),
+      forwardedFromMessageId: (json['forwarded_from_message_id'] ?? json['ForwardedFromMessageID'])?.toString(),
+      attachedContent: ((json['attached_content'] ?? json['Attachments']) as List<dynamic>?)
               ?.map((e) => AttachedContentModel.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],

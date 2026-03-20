@@ -13,12 +13,14 @@ class MessagesInitial extends MessagesState {}
 class MessagesLoading extends MessagesState {}
 
 class MessagesLoaded extends MessagesState {
+  final String chatId;
   final List<MessageModel> messages;
   final bool hasReachedMax;
   final String currentUserId; // Used to identify own vs other messages
   final Map<String, String> userNames; // userId -> displayName
 
   const MessagesLoaded({
+    required this.chatId,
     required this.messages,
     this.hasReachedMax = false,
     required this.currentUserId,
@@ -26,12 +28,14 @@ class MessagesLoaded extends MessagesState {
   });
 
   MessagesLoaded copyWith({
+    String? chatId,
     List<MessageModel>? messages,
     bool? hasReachedMax,
     String? currentUserId,
     Map<String, String>? userNames,
   }) {
     return MessagesLoaded(
+      chatId: chatId ?? this.chatId,
       messages: messages ?? this.messages,
       hasReachedMax: hasReachedMax ?? this.hasReachedMax,
       currentUserId: currentUserId ?? this.currentUserId,
@@ -40,7 +44,7 @@ class MessagesLoaded extends MessagesState {
   }
 
   @override
-  List<Object?> get props => [messages, hasReachedMax, currentUserId, userNames];
+  List<Object?> get props => [chatId, messages, hasReachedMax, currentUserId, userNames];
 }
 
 class MessagesError extends MessagesState {

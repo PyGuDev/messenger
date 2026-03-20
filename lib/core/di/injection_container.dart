@@ -12,6 +12,7 @@ import '../../features/messages/presentation/bloc/messages_bloc.dart';
 import '../../features/network/presentation/bloc/network_bloc.dart';
 import '../network/websocket_service.dart';
 import '../network/network_info.dart';
+import '../../features/auth/presentation/bloc/auth_event.dart';
 
 final sl = GetIt.instance; // sl stands for Service Locator
 
@@ -36,7 +37,11 @@ Future<void> init() async {
   );
 
   sl.registerLazySingleton<Dio>(
-    () => NetworkModule.createAuthDio(sl(), sl(instanceName: 'internalDio')),
+    () => NetworkModule.createAuthDio(
+      sl(),
+      sl(instanceName: 'internalDio'),
+      onTokenExpired: () => sl<AuthBloc>().add(LogoutRequested()),
+    ),
     instanceName: 'authDio',
   );
 
@@ -44,6 +49,7 @@ Future<void> init() async {
     () => NetworkModule.createChatDio(
       sl(),
       sl(instanceName: 'internalDio'),
+      onTokenExpired: () => sl<AuthBloc>().add(LogoutRequested()),
     ),
     instanceName: 'chatDio',
   );
@@ -61,7 +67,7 @@ Future<void> init() async {
   sl.registerFactory<NetworkBloc>(
     () => NetworkBloc(sl()),
   );
-  sl.registerFactory<AuthBloc>(
+  sl.registerLazySingleton<AuthBloc>(
     () => AuthBloc(sl(instanceName: 'authDio'), sl(), sl()),
   );
   sl.registerFactory<ProfileBloc>(

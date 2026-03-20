@@ -28,8 +28,8 @@ class MessengerApp extends StatelessWidget {
         BlocProvider<NetworkBloc>(
           create: (_) => di.sl<NetworkBloc>(),
         ),
-        BlocProvider<AuthBloc>(
-          create: (_) => di.sl<AuthBloc>()..add(CheckAuthStatus()),
+        BlocProvider<AuthBloc>.value(
+          value: di.sl<AuthBloc>()..add(CheckAuthStatus()),
         ),
         BlocProvider<ProfileBloc>(
           create: (_) => di.sl<ProfileBloc>(),

@@ -28,11 +28,12 @@ class LoadMoreMessages extends MessagesEvent {
 class SendMessage extends MessagesEvent {
   final String chatId;
   final String text;
+  final String? replyToMessageId;
 
-  const SendMessage({required this.chatId, required this.text});
+  const SendMessage({required this.chatId, required this.text, this.replyToMessageId});
 
   @override
-  List<Object?> get props => [chatId, text];
+  List<Object?> get props => [chatId, text, replyToMessageId];
 }
 
 class ResendMessage extends MessagesEvent {

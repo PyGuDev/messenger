@@ -159,10 +159,12 @@ class ChatsBloc extends Bloc<ChatsEvent, ChatsState> {
       final eventData = event.event;
 
       if (eventData['type'] == 'new_message') {
-        final messageData = eventData['data'];
-        if (messageData == null) return;
+        final payload = eventData['payload'];
+        if (payload == null) return;
         
-        final chatId = messageData['chat_id'];
+        final chatId = payload['chat_id']?.toString();
+        final messageData = payload['message'];
+        if (messageData == null || chatId == null) return;
         
         final existingChatIndex = currentState.chats.indexWhere((c) => c.id == chatId);
         
@@ -171,7 +173,7 @@ class ChatsBloc extends Bloc<ChatsEvent, ChatsState> {
           final updatedChat = chat.copyWith(
             lastMessage: LastMessageModel.fromJson(messageData),
             unreadCount: chat.unreadCount + 1,
-            updatedAt: DateTime.parse(messageData['created_at']),
+            updatedAt: DateTime.tryParse((messageData['created_at'] ?? messageData['CreatedAt'])?.toString() ?? '') ?? chat.updatedAt,
           );
           
           final updatedChats = List<ChatModel>.from(currentState.chats)

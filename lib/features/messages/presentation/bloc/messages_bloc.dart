@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../core/network/websocket_service.dart';
 import '../../../../core/network/user_service.dart';
+import 'package:flutter/foundation.dart' as import_foundation;
 import 'package:messenger/core/security/token_storage.dart';
 import '../../data/models/message_model.dart';
 import 'messages_event.dart';
@@ -42,16 +43,17 @@ class MessagesBloc extends Bloc<MessagesEvent, MessagesState> {
     if (_currentUserId != null) return _currentUserId;
 
     _currentUserId = await _tokenStorage.getUserId();
-    if (_currentUserId != null) return _currentUserId;
-
-    // Fallback: extract from JWT token
+    
+    // Always try to extract from JWT if it matches what's in headers
     final token = await _tokenStorage.getAccessToken();
     if (token != null) {
-      _currentUserId = UserService.extractUserIdFromToken(token);
-      if (_currentUserId != null) {
-        await _tokenStorage.saveUserId(_currentUserId!);
+      final extractedId = UserService.extractUserIdFromToken(token);
+      if (extractedId != null) {
+        _currentUserId = extractedId;
+        await _tokenStorage.saveUserId(extractedId);
       }
     }
+    
     return _currentUserId;
   }
 
@@ -89,6 +91,7 @@ class MessagesBloc extends Bloc<MessagesEvent, MessagesState> {
       final userNames = await _resolveUserNames(messages, {});
       
       emit(MessagesLoaded(
+        chatId: event.chatId,
         messages: messages,
         currentUserId: _currentUserId ?? '',
         hasReachedMax: messagesData.length < 50,
@@ -143,16 +146,22 @@ class MessagesBloc extends Bloc<MessagesEvent, MessagesState> {
         updatedAt: now,
         status: MessageStatus.sending,
         clientMessageId: clientMessageId,
+        replyToMessageId: event.replyToMessageId,
       );
       
       final updatedMessages = List<MessageModel>.from(currentState.messages)..insert(0, newMessage);
       emit(currentState.copyWith(messages: updatedMessages));
       
       try {
-        final response = await _dio.post('/chats/${event.chatId}/messages', data: {
+        final data = <String, dynamic>{
           'body': event.text,
           'client_message_id': clientMessageId,
-        });
+        };
+        if (event.replyToMessageId != null) {
+          data['reply_to_message_id'] = event.replyToMessageId;
+        }
+
+        final response = await _dio.post('/chats/${event.chatId}/messages', data: data);
         
         final serverMessage = MessageModel.fromJson(response.data['data']);
         
@@ -228,23 +237,29 @@ class MessagesBloc extends Bloc<MessagesEvent, MessagesState> {
       final eventData = event.event;
 
       if (eventData['type'] == 'new_message') {
-        final messageData = eventData['data'];
+        final payload = eventData['payload'];
+        if (payload == null) return;
+        
+        final chatId = payload['chat_id']?.toString();
+        final messageData = payload['message'];
         if (messageData == null) return;
         
-        final chatId = messageData['chat_id'];
-        
         // Only if it's the current chat and not my own message (already handled via optimistic UI)
-        if (currentState.messages.isNotEmpty && 
-            currentState.messages.first.chatId == chatId &&
-            messageData['sender_id'] != _currentUserId) {
+        if (currentState.chatId == chatId &&
+            (messageData['AuthorID'] ?? messageData['author_id'] ?? messageData['sender_id'])?.toString() != _currentUserId) {
           
-          final newMessage = MessageModel.fromJson(messageData);
-          final updatedMessages = List<MessageModel>.from(currentState.messages)..insert(0, newMessage);
+          try {
+            final newMessage = MessageModel.fromJson(messageData);
+            final updatedMessages = List<MessageModel>.from(currentState.messages)..insert(0, newMessage);
 
-          // Resolve name for new author if needed
-          final userNames = await _resolveUserNames([newMessage], currentState.userNames);
-          
-          emit(currentState.copyWith(messages: updatedMessages, userNames: userNames));
+            // Resolve name for new author if needed
+            final userNames = await _resolveUserNames([newMessage], currentState.userNames);
+            
+            emit(currentState.copyWith(messages: updatedMessages, userNames: userNames));
+          } catch (e) {
+            // Log parse error and prevent the bloc from crashing
+            import_foundation.debugPrint('Error parsing websocket message: $e');
+          }
         }
       }
     }

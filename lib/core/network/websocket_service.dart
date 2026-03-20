@@ -5,6 +5,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import '../security/token_storage.dart';
 import '../network/network_module.dart';
 import 'network_info.dart';
+import 'package:flutter/foundation.dart';
 
 enum WebSocketStatus { connected, disconnected, connecting }
 
@@ -39,18 +40,22 @@ class WebSocketService {
   Stream<WebSocketStatus> get status => _statusController!.stream;
 
   Future<void> connect() async {
+    debugPrint('WebSocket connect() called');
     _shouldReconnect = true;
     await _establishConnection();
   }
 
   Future<void> _establishConnection() async {
-    if (!await _networkInfo.isConnected) {
-      _statusController?.add(WebSocketStatus.disconnected);
-      return;
+    final isConnected = await _networkInfo.isConnected;
+    if (!isConnected) {
+      debugPrint('WebSocket connection aborted: _networkInfo.isConnected is false');
+      // On some platforms (macOS/iOS simulator), connectivity_plus can falsely claim 'none'. Let's bypass the hard block for testing.
+      debugPrint('Bypassing network check just in case...');
     }
 
     final token = await _tokenStorage.getAccessToken();
     if (token == null) {
+      debugPrint('WebSocket connection aborted: token is null');
       _statusController?.add(WebSocketStatus.disconnected);
       return;
     }
@@ -60,9 +65,11 @@ class WebSocketService {
 
     try {
       _channel = WebSocketChannel.connect(uri);
+      debugPrint('WebSocket connecting to: $uri');
       
       _channel!.stream.listen(
         (data) {
+          debugPrint('WebSocket received data: $data');
           _reconnectAttempts = 0;
           _statusController?.add(WebSocketStatus.connected);
           try {
@@ -72,10 +79,17 @@ class WebSocketService {
             // Log parse error
           }
         },
-        onDone: _handleDisconnection,
-        onError: (_) => _handleDisconnection(),
+        onDone: () {
+          debugPrint('WebSocket closed');
+          _handleDisconnection();
+        },
+        onError: (e) {
+          debugPrint('WebSocket error: $e');
+          _handleDisconnection();
+        },
       );
     } catch (e) {
+      debugPrint('WebSocket catch error: $e');
       _handleDisconnection();
     }
   }

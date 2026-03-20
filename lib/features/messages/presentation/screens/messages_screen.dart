@@ -29,6 +29,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
   final ScrollController _scrollController = ScrollController();
   bool _isSendButtonActive = false;
   bool _emojiVisible = false;
+  MessageModel? _replyingToMessage;
 
   @override
   void initState() {
@@ -61,10 +62,29 @@ class _MessagesScreenState extends State<MessagesScreen> {
   void _sendMessage() {
     final text = _textController.text.trim();
     if (text.isNotEmpty) {
-      context.read<MessagesBloc>().add(SendMessage(chatId: widget.chatId, text: text));
+      context.read<MessagesBloc>().add(SendMessage(
+        chatId: widget.chatId, 
+        text: text,
+        replyToMessageId: _replyingToMessage?.id,
+      ));
       _textController.clear();
+      setState(() {
+        _replyingToMessage = null;
+      });
       _scrollToBottom();
     }
+  }
+
+  void _initiateReply(MessageModel message) {
+    setState(() {
+      _replyingToMessage = message;
+    });
+  }
+
+  void _cancelReply() {
+    setState(() {
+      _replyingToMessage = null;
+    });
   }
 
   void _scrollToBottom() {
@@ -96,11 +116,16 @@ class _MessagesScreenState extends State<MessagesScreen> {
     }
   }
 
-  Widget _buildMessageBubble(MessageModel message, String currentUserId, Map<String, String> userNames) {
-    final isMine = message.authorId == currentUserId;
+  Widget _buildMessageBubble(MessageModel message, String currentUserId, Map<String, String> userNames, MessageModel? repliedMessage) {
+    final isMine = message.authorId.trim() == currentUserId.trim() && currentUserId.isNotEmpty;
+    
+    if (foundation.kDebugMode) {
+      foundation.debugPrint('Message ID: ${message.id}, Author: ${message.authorId}, CurrentUser: $currentUserId, isMine: $isMine');
+    }
+
     final authorName = userNames[message.authorId] ?? 'User';
 
-    return Align(
+    final bubble = Align(
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
@@ -118,7 +143,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
           maxWidth: MediaQuery.of(context).size.width * 0.75,
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
+          crossAxisAlignment: isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
             if (!isMine) ...[
               Text(
@@ -130,6 +155,59 @@ class _MessagesScreenState extends State<MessagesScreen> {
                 ),
               ),
               const SizedBox(height: 4),
+            ],
+            if (repliedMessage != null) ...[
+              Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0x22FFFFFF),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: IntrinsicHeight(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 3,
+                        decoration: BoxDecoration(
+                          color: AppColors.accentBlue,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              userNames[repliedMessage.authorId] ?? 'User',
+                              style: const TextStyle(
+                                color: AppColors.accentBlue,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              repliedMessage.text,
+                              style: TextStyle(
+                                color: isMine ? AppColors.textOnAccent : AppColors.textPrimary,
+                                fontSize: 13,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ],
             Text(
               message.text,
@@ -174,6 +252,25 @@ class _MessagesScreenState extends State<MessagesScreen> {
           ],
         ),
       ),
+    );
+
+    return Dismissible(
+      key: Key('msg_${message.clientMessageId ?? message.id}'),
+      direction: DismissDirection.endToStart,
+      dismissThresholds: const {
+        DismissDirection.endToStart: 0.1,
+      },
+      confirmDismiss: (direction) async {
+        _initiateReply(message);
+        return false;
+      },
+      secondaryBackground: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        child: const Icon(Icons.reply, color: AppColors.textTertiary),
+      ),
+      background: Container(),
+      child: bubble,
     );
   }
 
@@ -275,7 +372,14 @@ class _MessagesScreenState extends State<MessagesScreen> {
                           child: Center(child: CircularProgressIndicator()),
                         );
                       }
-                      return _buildMessageBubble(state.messages[index], state.currentUserId, state.userNames);
+                      final message = state.messages[index];
+                      final repliedMessage = message.replyToMessageId != null
+                          ? state.messages.cast<MessageModel?>().firstWhere(
+                              (m) => m?.id == message.replyToMessageId,
+                              orElse: () => null,
+                            )
+                          : null;
+                      return _buildMessageBubble(message, state.currentUserId, state.userNames, repliedMessage);
                     },
                   );
                 } else if (state is MessagesError) {
@@ -296,13 +400,18 @@ class _MessagesScreenState extends State<MessagesScreen> {
   }
 
   Widget _buildMessageInput() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 32),
-      decoration: const BoxDecoration(
-        color: AppColors.bgPrimary,
-        border: Border(top: BorderSide(color: AppColors.borderDefault)),
-      ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (_replyingToMessage != null) _buildReplyPreview(),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: const BoxDecoration(
+            color: AppColors.bgPrimary,
+            border: Border(top: BorderSide(color: AppColors.borderDefault)),
+          ),
       child: SafeArea(
+        bottom: !_emojiVisible,
         child: Row(
           children: [
             const Icon(Icons.attach_file, color: AppColors.textTertiary, size: 24),
@@ -381,15 +490,18 @@ class _MessagesScreenState extends State<MessagesScreen> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  ]);
+}
 
   Widget _buildEmojiPicker() {
     return Offstage(
       offstage: !_emojiVisible,
-      child: EmojiPicker(
-        textEditingController: _textController,
-        onEmojiSelected: (Category? category, Emoji emoji) {
+      child: SafeArea(
+        top: false,
+        child: EmojiPicker(
+          textEditingController: _textController,
+          onEmojiSelected: (Category? category, Emoji emoji) {
           setState(() {
             _isSendButtonActive = _textController.text.trim().isNotEmpty;
           });
@@ -429,6 +541,66 @@ class _MessagesScreenState extends State<MessagesScreen> {
             hintText: 'Поиск эмодзи...',
           ),
         ),
+      ),
+    ));
+  }
+
+  Widget _buildReplyPreview() {
+    final blocState = context.read<MessagesBloc>().state;
+    String authorName = 'User';
+    if (blocState is MessagesLoaded && _replyingToMessage != null) {
+      authorName = blocState.userNames[_replyingToMessage!.authorId] ?? 'User';
+    }
+
+    return Container(
+      padding: const EdgeInsets.only(left: 12, right: 12, top: 10, bottom: 0),
+      color: AppColors.bgPrimary,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          const Icon(Icons.reply, color: AppColors.accentBlue, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: IntrinsicHeight(
+              child: Row(
+                children: [
+                  Container(
+                    width: 3,
+                    decoration: BoxDecoration(
+                      color: AppColors.accentBlue,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          authorName,
+                          style: const TextStyle(color: AppColors.accentBlue, fontWeight: FontWeight.w600, fontSize: 13),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _replyingToMessage!.text,
+                          style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.close, color: AppColors.textTertiary, size: 20),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            onPressed: _cancelReply,
+          ),
+        ],
       ),
     );
   }
