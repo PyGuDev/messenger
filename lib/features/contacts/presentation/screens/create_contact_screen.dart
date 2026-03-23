@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:messenger/shared/theme/app_colors.dart';
+import 'package:flutter_contacts/flutter_contacts.dart';
 
 class CreateContactScreen extends StatefulWidget {
   const CreateContactScreen({super.key});
@@ -24,6 +25,36 @@ class _CreateContactScreenState extends State<CreateContactScreen> {
     _emailController.dispose();
     _companyController.dispose();
     super.dispose();
+  }
+
+  bool _isSaving = false;
+
+  Future<void> _saveContact() async {
+    if (_firstNameController.text.isEmpty && _phoneController.text.isEmpty) {
+      context.pop();
+      return;
+    }
+
+    setState(() => _isSaving = true);
+
+    try {
+      final contact = Contact(
+        name: Name(first: _firstNameController.text, last: _lastNameController.text),
+        phones: [if (_phoneController.text.isNotEmpty) Phone(number: _phoneController.text)],
+        emails: [if (_emailController.text.isNotEmpty) Email(address: _emailController.text)],
+        organizations: [if (_companyController.text.isNotEmpty) Organization(name: _companyController.text)],
+      );
+
+      await FlutterContacts.create(contact);
+      
+      if (mounted) {
+        context.pop(true);
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
   }
 
   @override
@@ -51,10 +82,7 @@ class _CreateContactScreenState extends State<CreateContactScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () {
-              // TODO: save contact
-              context.pop();
-            },
+            onPressed: _isSaving ? null : _saveContact,
             child: const Text(
               'Готово',
               style: TextStyle(
@@ -131,10 +159,7 @@ class _CreateContactScreenState extends State<CreateContactScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
             child: GestureDetector(
-              onTap: () {
-                // TODO: save contact
-                context.pop();
-              },
+              onTap: _isSaving ? null : _saveContact,
               child: Container(
                 height: 52,
                 decoration: BoxDecoration(
@@ -143,18 +168,26 @@ class _CreateContactScreenState extends State<CreateContactScreen> {
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
-                    Icon(Icons.person_add_alt, color: AppColors.textOnAccent, size: 20),
-                    SizedBox(width: 8),
-                    Text(
-                      'Сохранить контакт',
-                      style: TextStyle(
-                        color: AppColors.textOnAccent,
-                        fontFamily: 'Inter',
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                  children: [
+                    if (_isSaving)
+                      const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(color: AppColors.textOnAccent, strokeWidth: 2),
+                      )
+                    else ...[
+                      const Icon(Icons.person_add_alt, color: AppColors.textOnAccent, size: 20),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Сохранить контакт',
+                        style: TextStyle(
+                          color: AppColors.textOnAccent,
+                          fontFamily: 'Inter',
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),

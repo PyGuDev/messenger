@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:messenger/shared/theme/app_colors.dart';
+import 'package:flutter_contacts/flutter_contacts.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:get_it/get_it.dart';
+import 'package:messenger/core/network/user_service.dart';
 
 class ContactsScreen extends StatefulWidget {
   const ContactsScreen({super.key});
@@ -13,19 +17,93 @@ class _ContactsScreenState extends State<ContactsScreen> {
   final _searchController = TextEditingController();
   String _searchQuery = '';
 
-  // Demo contacts data grouped by first letter
-  final List<_ContactItem> _allContacts = [
-    _ContactItem('Алексей Иванов', '+7 (903) 555-12-34', const Color(0xFF3B82F6), true, true),
-    _ContactItem('Анна Петрова', '+7 (916) 233-45-67', const Color(0xFF8B5CF6), false, false),
-    _ContactItem('Виктор Смирнов', '+7 (926) 111-22-33', const Color(0xFF10B981), false, true),
-    _ContactItem('Дарья Козлова', '+7 (905) 987-65-43', const Color(0xFFF59E0B), true, false),
-    _ContactItem('Елена Волкова', '+7 (917) 444-55-66', const Color(0xFFEF4444), true, true),
-    _ContactItem('Кирилл Новиков', '+7 (925) 777-88-99', const Color(0xFF6366F1), false, false),
-    _ContactItem('Мария Лебедева', '+7 (909) 321-54-76', const Color(0xFFEC4899), false, true),
-    _ContactItem('Михаил Фёдоров', '+7 (912) 654-32-10', const Color(0xFF14B8A6), true, false),
-    _ContactItem('Наталья Соколова', '+7 (910) 888-77-66', const Color(0xFFF97316), false, false),
-    _ContactItem('Олег Морозов', '+7 (903) 222-33-44', const Color(0xFF0EA5E9), true, true),
-  ];
+  List<_ContactItem> _allContacts = [];
+  bool _isLoadingContacts = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchContacts();
+  }
+
+  Future<void> _fetchContacts() async {
+    final permissionStatus = await Permission.contacts.request();
+    if (!permissionStatus.isGranted) {
+      if (mounted) setState(() => _isLoadingContacts = false);
+      return;
+    }
+    
+    final contacts = await FlutterContacts.getAll(properties: {ContactProperty.phone});
+    final List<_ContactItem> items = [];
+    final colors = [
+      AppColors.accentBlue,
+      const Color(0xFF8B5CF6),
+      const Color(0xFF10B981),
+      const Color(0xFFF59E0B),
+      const Color(0xFFEF4444),
+      const Color(0xFF6366F1),
+      const Color(0xFFEC4899),
+      const Color(0xFF14B8A6),
+      const Color(0xFFF97316),
+      const Color(0xFF0EA5E9),
+    ];
+
+    int colorIndex = 0;
+    for (final contact in contacts) {
+      if (contact.phones.isEmpty) continue;
+      
+      final phone = contact.phones.first.number;
+      final name = (contact.displayName != null && contact.displayName!.isNotEmpty) 
+          ? contact.displayName! 
+          : 'Unknown';
+      
+      items.add(_ContactItem(name, phone, colors[colorIndex % colors.length], false, false));
+      colorIndex++;
+    }
+    
+    if (mounted) {
+      setState(() {
+        _allContacts = items;
+        _isLoadingContacts = false;
+      });
+    }
+    
+    if (items.isNotEmpty) {
+      _syncWithBackend();
+    }
+  }
+
+  Future<void> _syncWithBackend() async {
+    final userService = GetIt.I<UserService>();
+    
+    // Process in paralell chunks to not spam the event loop but finish fast
+    final chunks = <List<_ContactItem>>[];
+    const chunkSize = 10;
+    for (var i = 0; i < _allContacts.length; i += chunkSize) {
+      final end = (i + chunkSize < _allContacts.length) ? i + chunkSize : _allContacts.length;
+      chunks.add(_allContacts.sublist(i, end));
+    }
+
+    for (final chunk in chunks) {
+      await Future.wait(chunk.map((item) async {
+        try {
+          // Keep + and digits
+          final cleanPhone = item.phone.replaceAll(RegExp(r'[^\d+]'), '');
+          final profiles = await userService.searchUser(phone: cleanPhone);
+          if (profiles.isNotEmpty) {
+            if (mounted) {
+              setState(() {
+                final index = _allContacts.indexOf(item);
+                if (index != -1) {
+                  _allContacts[index] = _ContactItem(item.name, item.phone, item.color, true, true);
+                }
+              });
+            }
+          }
+        } catch (_) {}
+      }));
+    }
+  }
 
   @override
   void dispose() {
@@ -43,7 +121,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
   Map<String, List<_ContactItem>> get _groupedContacts {
     final map = <String, List<_ContactItem>>{};
     for (final contact in _filteredContacts) {
-      final letter = contact.name[0].toUpperCase();
+      final letter = contact.name.isNotEmpty ? contact.name[0].toUpperCase() : '?';
       map.putIfAbsent(letter, () => []).add(contact);
     }
     return Map.fromEntries(map.entries.toList()..sort((a, b) => a.key.compareTo(b.key)));
@@ -75,7 +153,13 @@ class _ContactsScreenState extends State<ContactsScreen> {
                     ),
                   ),
                   GestureDetector(
-                    onTap: () => context.push('/create-contact'),
+                    onTap: () async {
+                      final result = await context.push<bool>('/create-contact');
+                      if (result == true && mounted) {
+                        setState(() => _isLoadingContacts = true);
+                        _fetchContacts();
+                      }
+                    },
                     child: const Icon(Icons.add, color: AppColors.textTertiary, size: 22),
                   ),
                 ],
@@ -123,7 +207,9 @@ class _ContactsScreenState extends State<ContactsScreen> {
             ),
             // Contact list
             Expanded(
-              child: ListView(
+              child: _isLoadingContacts 
+                ? const Center(child: CircularProgressIndicator(color: AppColors.accentBlue))
+                : ListView(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 children: _groupedContacts.entries.expand((entry) {
                   return [
@@ -154,7 +240,8 @@ class _ContactsScreenState extends State<ContactsScreen> {
   }
 
   Widget _buildContactTile(_ContactItem contact) {
-    final initials = contact.name.split(' ').map((w) => w[0]).take(2).join();
+    final nameParts = contact.name.split(' ').where((p) => p.isNotEmpty);
+    final initials = nameParts.isEmpty ? '?' : nameParts.map((w) => w[0]).take(2).join().toUpperCase();
     final hasMessenger = contact.inMessenger;
 
     return Container(

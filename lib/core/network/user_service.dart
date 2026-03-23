@@ -75,6 +75,26 @@ class UserService {
     }
   }
 
+  Future<List<UserProfile>> searchUser({String? phone, String? email}) async {
+    try {
+      final queryParams = <String, dynamic>{};
+      if (phone != null && phone.isNotEmpty) queryParams['phone'] = phone;
+      if (email != null && email.isNotEmpty) queryParams['email'] = email;
+      
+      if (queryParams.isEmpty) return [];
+
+      final response = await _dio.get('/users/search', queryParameters: queryParams);
+      final data = response.data;
+      
+      if (data is List) {
+        return data.map((e) => UserProfile.fromJson(e as Map<String, dynamic>)).toList();
+      }
+      return [];
+    } catch (_) {
+      return [];
+    }
+  }
+
   void clearCache() {
     _cache.clear();
   }
