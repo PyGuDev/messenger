@@ -185,6 +185,33 @@ class ChatsBloc extends Bloc<ChatsEvent, ChatsState> {
           // If chat not in list, reload all
           add(LoadChats());
         }
+      } else if (eventData['type'] == 'chat_read' || eventData['type'] == 'message_read' || eventData['type'] == 'read' || eventData['type'] == 'seen') {
+        final payload = eventData['payload'];
+        if (payload == null) return;
+        
+        final chatId = (payload['chat_id'] ?? payload['ChatID'] ?? payload['id'] ?? payload['ID'])?.toString();
+        final readerId = (payload['user_id'] ?? payload['UserID'] ?? payload['reader_id'] ?? payload['reader'] ?? payload['sender_id'])?.toString();
+        final upToStr = (payload['up_to'] ?? payload['UpTo'] ?? payload['read_up_to'] ?? payload['created_at'] ?? payload['CreatedAt'] ?? payload['timestamp'])?.toString();
+        if (chatId == null || upToStr == null) return;
+
+        final currentUserIdFromStorage = await _getCurrentUserId();
+        final myId = (currentUserIdFromStorage ?? '').trim();
+        final rId = readerId?.trim();
+        
+        // Logic: if I read it OR someone else read it, we might need to reset unread count
+        // In ChatsBloc, we ONLY reset unread count if WE are the reader.
+        if (rId == null || rId == myId) {
+          final existingChatIndex = currentState.chats.indexWhere((c) => c.id == chatId);
+          if (existingChatIndex != -1) {
+            final chat = currentState.chats[existingChatIndex];
+            final updatedChat = chat.copyWith(unreadCount: 0);
+            
+            final updatedChats = List<ChatModel>.from(currentState.chats)
+              ..[existingChatIndex] = updatedChat;
+              
+            emit(currentState.copyWith(chats: updatedChats));
+          }
+        }
       }
     }
   }

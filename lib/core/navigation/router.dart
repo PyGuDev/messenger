@@ -66,7 +66,8 @@ final router = GoRouter(
       builder: (context, state) {
         final chatId = state.pathParameters['id']!;
         final title = state.extra as String? ?? 'Chat';
-        return MessagesScreen(chatId: chatId, title: title);
+        final isGroup = state.uri.queryParameters['isGroup'] == 'true';
+        return MessagesScreen(chatId: chatId, title: title, isGroup: isGroup);
       },
     ),
     GoRoute(

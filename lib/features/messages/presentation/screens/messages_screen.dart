@@ -17,23 +17,29 @@ import 'package:messenger/shared/widgets/error_display.dart';
 class MessagesScreen extends StatefulWidget {
   final String chatId;
   final String title;
+  final bool isGroup;
 
-  const MessagesScreen({super.key, required this.chatId, required this.title});
+  const MessagesScreen({super.key, required this.chatId, required this.title, this.isGroup = false});
 
   @override
   State<MessagesScreen> createState() => _MessagesScreenState();
 }
 
-class _MessagesScreenState extends State<MessagesScreen> {
+class _MessagesScreenState extends State<MessagesScreen> with WidgetsBindingObserver {
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _isSendButtonActive = false;
   bool _emojiVisible = false;
   MessageModel? _replyingToMessage;
+  final Map<String, GlobalKey> _messageKeys = {};
+  String? _highlightedMessageId;
+
+  DateTime? _lastReadSent;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     context.read<MessagesBloc>().add(LoadMessages(widget.chatId));
 
     _textController.addListener(() {
@@ -49,14 +55,38 @@ class _MessagesScreenState extends State<MessagesScreen> {
       if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
         context.read<MessagesBloc>().add(LoadMoreMessages(widget.chatId));
       }
+      if (_scrollController.position.pixels <= 50) {
+        _markAsReadIfAtBottom();
+      }
     });
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _textController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _markAsReadIfAtBottom();
+    }
+  }
+
+  void _markAsReadIfAtBottom() {
+    if (!mounted) return;
+    if (!_scrollController.hasClients) return;
+    
+    if (_scrollController.position.pixels <= 50) {
+      final now = DateTime.now();
+      if (_lastReadSent == null || now.difference(_lastReadSent!).inSeconds > 2) {
+        _lastReadSent = now;
+        context.read<MessagesBloc>().add(MarkMessagesAsRead(chatId: widget.chatId, upTo: now));
+      }
+    }
   }
 
   void _sendMessage() {
@@ -97,6 +127,63 @@ class _MessagesScreenState extends State<MessagesScreen> {
     }
   }
 
+  void _scrollToMessage(String messageId) {
+    final key = _messageKeys[messageId];
+    if (key != null && key.currentContext != null) {
+      Scrollable.ensureVisible(
+        key.currentContext!,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+        alignment: 0.5,
+      );
+      _highlightMessage(messageId);
+    } else {
+      final blocState = context.read<MessagesBloc>().state;
+      if (blocState is MessagesLoaded) {
+        final index = blocState.messages.indexWhere((m) => m.id == messageId);
+        if (index != -1) {
+          // Estimate offset based on average item height
+          final estimatedOffset = index * 80.0;
+          final maxExtent = _scrollController.position.maxScrollExtent;
+          final target = estimatedOffset > maxExtent ? maxExtent : estimatedOffset;
+          
+          _scrollController.animateTo(
+            target,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+          ).then((_) {
+            // After rough scroll, the item might be built. Try ensuring visibility exactly.
+            Future.delayed(const Duration(milliseconds: 50), () {
+              final newKey = _messageKeys[messageId];
+              if (newKey != null && newKey.currentContext != null) {
+                Scrollable.ensureVisible(
+                  newKey.currentContext!,
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                  alignment: 0.5,
+                );
+              }
+              _highlightMessage(messageId);
+            });
+          });
+        }
+      }
+    }
+  }
+
+  void _highlightMessage(String messageId) {
+    setState(() {
+      _highlightedMessageId = messageId;
+    });
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) {
+        setState(() {
+          _highlightedMessageId = null;
+        });
+      }
+    });
+  }
+
   String _formatTime(DateTime time) {
     return DateFormat.Hm().format(time); // HH:mm
   }
@@ -116,7 +203,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
     }
   }
 
-  Widget _buildMessageBubble(MessageModel message, String currentUserId, Map<String, String> userNames, MessageModel? repliedMessage) {
+  Widget _buildMessageBubble(MessageModel message, String currentUserId, Map<String, String> userNames, MessageModel? repliedMessage, GlobalKey? key) {
     final isMine = message.authorId.trim() == currentUserId.trim() && currentUserId.isNotEmpty;
     
     if (foundation.kDebugMode) {
@@ -131,7 +218,9 @@ class _MessagesScreenState extends State<MessagesScreen> {
         margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
         decoration: BoxDecoration(
-          color: isMine ? AppColors.bgMessageOut : AppColors.bgMessageIn,
+          color: _highlightedMessageId == message.id 
+            ? AppColors.bgHighlight 
+            : (isMine ? AppColors.bgMessageOut : AppColors.bgMessageIn),
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(16),
             topRight: const Radius.circular(16),
@@ -145,7 +234,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
         child: Column(
           crossAxisAlignment: isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
-            if (!isMine) ...[
+            if (!isMine && widget.isGroup) ...[
               Text(
                 authorName,
                 style: const TextStyle(
@@ -157,54 +246,57 @@ class _MessagesScreenState extends State<MessagesScreen> {
               const SizedBox(height: 4),
             ],
             if (repliedMessage != null) ...[
-              Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                decoration: BoxDecoration(
-                  color: const Color(0x22FFFFFF),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: IntrinsicHeight(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 3,
-                        decoration: BoxDecoration(
-                          color: AppColors.accentBlue,
-                          borderRadius: BorderRadius.circular(2),
+              GestureDetector(
+                onTap: () => _scrollToMessage(repliedMessage.id),
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0x22FFFFFF),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: IntrinsicHeight(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 3,
+                          decoration: BoxDecoration(
+                            color: isMine ? AppColors.accentBlueLight : AppColors.accentBlue,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              userNames[repliedMessage.authorId] ?? 'User',
-                              style: const TextStyle(
-                                color: AppColors.accentBlue,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                userNames[repliedMessage.authorId] ?? 'User',
+                                style: TextStyle(
+                                  color: isMine ? AppColors.accentBlueLight : AppColors.accentBlue,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              repliedMessage.text,
-                              style: TextStyle(
-                                color: isMine ? AppColors.textOnAccent : AppColors.textPrimary,
-                                fontSize: 13,
+                              const SizedBox(height: 2),
+                              Text(
+                                repliedMessage.text,
+                                style: TextStyle(
+                                  color: isMine ? AppColors.textOnAccent.withOpacity(0.66) : AppColors.textPrimary,
+                                  fontSize: 13,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -252,6 +344,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
           ],
         ),
       ),
+      key: key,
     );
 
     return Dismissible(
@@ -353,7 +446,12 @@ class _MessagesScreenState extends State<MessagesScreen> {
             child: BlocConsumer<MessagesBloc, MessagesState>(
               listener: (context, state) {
                 if (state is MessagesLoaded) {
-                  context.read<MessagesBloc>().add(MarkMessagesAsRead(chatId: widget.chatId, upTo: DateTime.now()));
+                  if (_lastReadSent == null) {
+                    _lastReadSent = DateTime.now();
+                    context.read<MessagesBloc>().add(MarkMessagesAsRead(chatId: widget.chatId, upTo: _lastReadSent!));
+                  } else {
+                    _markAsReadIfAtBottom();
+                  }
                 }
               },
               builder: (context, state) {
@@ -379,7 +477,8 @@ class _MessagesScreenState extends State<MessagesScreen> {
                               orElse: () => null,
                             )
                           : null;
-                      return _buildMessageBubble(message, state.currentUserId, state.userNames, repliedMessage);
+                      final key = _messageKeys.putIfAbsent(message.id, () => GlobalKey());
+                      return _buildMessageBubble(message, state.currentUserId, state.userNames, repliedMessage, key);
                     },
                   );
                 } else if (state is MessagesError) {

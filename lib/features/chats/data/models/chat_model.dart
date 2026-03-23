@@ -39,9 +39,9 @@ class LastMessageModel extends Equatable {
   factory LastMessageModel.fromJson(Map<String, dynamic> json) {
     return LastMessageModel(
       id: (json['id'] ?? json['ID'])?.toString() ?? '',
-      authorId: (json['author_id'] ?? json['AuthorID'])?.toString() ?? '',
+      authorId: (json['author_id'] ?? json['AuthorID'] ?? json['authorId'])?.toString() ?? '',
       body: (json['body'] ?? json['Body'])?.toString() ?? '',
-      createdAt: DateTime.tryParse((json['created_at'] ?? json['CreatedAt'])?.toString() ?? '') ?? DateTime.now(),
+      createdAt: DateTime.tryParse((json['created_at'] ?? json['CreatedAt'] ?? json['createdAt'])?.toString() ?? '') ?? DateTime.now(),
     );
   }
 
@@ -79,12 +79,17 @@ class ChatModel extends Equatable {
               ?.map((e) => MemberModel.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
-      lastMessage: json['last_message'] != null
-          ? LastMessageModel.fromJson(json['last_message'] as Map<String, dynamic>)
-          : null,
-      unreadCount: json['unread_count'] as int? ?? 0,
-      createdAt: DateTime.parse((json['created_at'] as String?) ?? DateTime.now().toIso8601String()),
-      updatedAt: DateTime.parse((json['updated_at'] as String?) ?? (json['created_at'] as String?) ?? DateTime.now().toIso8601String()),
+      lastMessage: () {
+        final lm = json['last_message'] ?? json['LastMessage'] ?? json['lastMessage'];
+        if (lm != null) {
+          return LastMessageModel.fromJson(lm as Map<String, dynamic>);
+        }
+        print('ChatModel fromJson: No last_message found in $json');
+        return null;
+      }(),
+      unreadCount: json['unread_count'] ?? json['UnreadCount'] ?? json['unreadCount'] as int? ?? 0,
+      createdAt: DateTime.parse((json['created_at'] ?? json['CreatedAt'] ?? json['createdAt'] as String?) ?? DateTime.now().toIso8601String()),
+      updatedAt: DateTime.parse((json['updated_at'] ?? json['UpdatedAt'] ?? json['updatedAt'] as String?) ?? (json['created_at'] ?? json['CreatedAt'] ?? json['createdAt'] as String?) ?? DateTime.now().toIso8601String()),
     );
   }
 

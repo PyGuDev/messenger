@@ -70,8 +70,50 @@ class MessageModel {
       text: (json['body'] ?? json['Body'])?.toString() ?? '',
       createdAt: DateTime.tryParse((json['created_at'] ?? json['CreatedAt'])?.toString() ?? '') ?? DateTime.now(),
       updatedAt: DateTime.tryParse((json['updated_at'] ?? json['UpdatedAt'] ?? json['created_at'] ?? json['CreatedAt'])?.toString() ?? '') ?? DateTime.now(),
-      // status is logic-dependent, API doesn't provide it in this form
-      status: MessageStatus.sent, 
+      // determine status from JSON fields
+      status: (() {
+        // 1. Explicit read status flags
+        final isRead = json['is_read'] == true || 
+                       json['IsRead'] == true || 
+                       json['read_at'] != null || 
+                       json['ReadAt'] != null ||
+                       json['read'] == true ||
+                       json['seen'] == true ||
+                       (json['is_read'] is int && (json['is_read'] as int) > 0) ||
+                       (json['read'] is int && (json['read'] as int) > 0);
+        if (isRead) return MessageStatus.read;
+
+        // 2. Status as int (common mapping: 1=sent, 2=delivered, 3=read)
+        final rawStatus = json['status'] ?? json['Status'];
+        if (rawStatus is int) {
+          if (rawStatus == 3) return MessageStatus.read;
+          if (rawStatus == 2) return MessageStatus.delivered;
+          if (rawStatus == 1) return MessageStatus.sent;
+          if (rawStatus == 0) return MessageStatus.sending;
+          if (rawStatus == 4) return MessageStatus.failed;
+          // fallback to index-based if it matches enum
+          if (rawStatus >= 0 && rawStatus < MessageStatus.values.length) {
+            return MessageStatus.values[rawStatus];
+          }
+        }
+
+        // 3. Status as string
+        if (rawStatus is String) {
+          final normalized = rawStatus.toLowerCase();
+          if (normalized == 'read' || normalized == 'seen') return MessageStatus.read;
+          if (normalized == 'delivered') return MessageStatus.delivered;
+          if (normalized == 'sent') return MessageStatus.sent;
+          if (normalized == 'sending') return MessageStatus.sending;
+          if (normalized == 'failed') return MessageStatus.failed;
+          
+          return MessageStatus.values.firstWhere(
+            (e) => e.name.toLowerCase() == normalized, 
+            orElse: () => MessageStatus.sent
+          );
+        }
+
+        return MessageStatus.sent;
+      })(), 
       clientMessageId: (json['client_message_id'] ?? json['ClientMessageID'])?.toString(),
       replyToMessageId: (json['reply_to_message_id'] ?? json['ReplyToMessageID'])?.toString(),
       forwardedFromMessageId: (json['forwarded_from_message_id'] ?? json['ForwardedFromMessageID'])?.toString(),

@@ -22,9 +22,7 @@ class TokenStorageImpl implements TokenStorage {
   TokenStorageImpl(this._storage);
 
   Future<void> _initPrefs() async {
-    if (_prefs == null) {
-      _prefs = await SharedPreferences.getInstance();
-    }
+    _prefs ??= await SharedPreferences.getInstance();
   }
 
   Future<T?> _runWithFallback<T>({

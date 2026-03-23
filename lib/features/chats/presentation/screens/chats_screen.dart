@@ -200,7 +200,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
                           ],
                         ),
                         onTap: () {
-                          context.push('/chat/${chat.id}', extra: chat.displayName);
+                          context.push('/chat/${chat.id}?isGroup=${chat.type == 2}', extra: chat.displayName);
                         },
                       ),
                     ),

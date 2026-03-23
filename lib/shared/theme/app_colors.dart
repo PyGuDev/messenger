@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  static const Color accentBlue = Color(0xFF2563EB);
+  static const Color accentBlue = Color(0xFF573AFE);
   static const Color accentBlueLight = Color(0xFFEFF6FF);
   
   static const Color bgPrimary = Color(0xFFFFFFFF);
@@ -9,7 +9,7 @@ class AppColors {
   static const Color bgInput = Color(0xFFF4F4F5);
   
   static const Color bgMessageIn = Color(0xFFF4F4F5);
-  static const Color bgMessageOut = Color(0xFF2563EB);
+  static const Color bgMessageOut = Color(0xFF573AFE);
   
   static const Color borderDefault = Color(0xFFE4E4E7);
   static const Color successGreen = Color(0xFF22C55E);
