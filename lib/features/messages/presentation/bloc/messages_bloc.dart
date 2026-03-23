@@ -261,6 +261,126 @@ class MessagesBloc extends Bloc<MessagesEvent, MessagesState> {
             import_foundation.debugPrint('Error parsing websocket message: $e');
           }
         }
+      } else if (eventData['type'] == 'chat_read' || eventData['type'] == 'message_read') {
+        final payload = eventData['payload'];
+        if (payload == null) return;
+        
+        // Debug logging to understand server response
+        import_foundation.debugPrint('Received read event: $eventData');
+        
+        // Debug logging to understand server response
+        import_foundation.debugPrint('Received read event payload keys: ${payload.keys.toList()}');
+        
+        String? chatId;
+        String? readerId;
+        String? upToStr;
+
+        // Exhaustive search for keys
+        payload.forEach((key, value) {
+          final k = key.toString().toLowerCase();
+          final v = value?.toString();
+          if (v == null) return;
+
+          if (k.contains('chat_id') || k == 'id') {
+            chatId ??= v;
+          } else if (k.contains('user_id') || k.contains('reader') || (k.contains('sender') && !k.contains('author'))) {
+            readerId ??= v;
+          } else if (k.contains('up_to') || k.contains('timestamp') || k.contains('created_at')) {
+            upToStr ??= v;
+          }
+        });
+        
+        final currentChatId = currentState.chatId;
+        if (chatId == null || upToStr == null || currentChatId != chatId) {
+          import_foundation.debugPrint('Read event ignored: chatId=$chatId, upTo=$upToStr, currentChatId=$currentChatId');
+          return;
+        }
+        
+        DateTime? upTo = DateTime.tryParse(upToStr!);
+        String? upToId;
+        if (upTo == null) {
+          // If not a date, maybe it's a message ID?
+          upToId = upToStr;
+        }
+
+        // Ensure we have myId
+        final myIdFromStorage = await _getCurrentUserId();
+        final myId = (myIdFromStorage ?? currentState.currentUserId).trim();
+        final rId = readerId?.trim();
+        
+        // Find index if we have an ID-based upTo
+        int? upToIndex;
+        if (upToId != null) {
+          upToIndex = currentState.messages.indexWhere((m) => m.id == upToId);
+        }
+
+        final updatedMessages = List<MessageModel>.from(currentState.messages);
+        for (int i = 0; i < updatedMessages.length; i++) {
+          final m = updatedMessages[i];
+          final authorId = m.authorId.trim();
+          bool shouldMarkAsRead = false;
+
+          if (rId == null || rId != myId) {
+            shouldMarkAsRead = (authorId == myId);
+          } else {
+            shouldMarkAsRead = (authorId != myId);
+          }
+
+          if (shouldMarkAsRead && m.status != MessageStatus.read) {
+            bool isBefore = false;
+            if (upTo != null) {
+              // Use a small buffer (1sec) for safety with timestamps
+              final upToBuffered = upTo.add(const Duration(seconds: 1));
+              isBefore = m.createdAt.isBefore(upToBuffered);
+            } else if (upToIndex != null) {
+              // If we are at or "above" (older) than the message with upToId
+              // Note: list is usually reversed (newest first), so index >= upToIndex depends on order.
+              // Assuming latest messages are at the BEGINNING of the list (typical for list.map)
+              // But list is typically 0: latest, N: oldest in our bloc.
+              // So messages from index to end are OLDER.
+              isBefore = (i >= upToIndex);
+            }
+
+            if (isBefore) {
+              updatedMessages[i] = m.copyWith(status: MessageStatus.read);
+            }
+          }
+        }
+
+        emit(currentState.copyWith(messages: updatedMessages));
+      } else if (eventData['type'] == 'message_status_changed') {
+        final payload = eventData['payload'];
+        if (payload == null) return;
+        
+        final chatId = payload['chat_id']?.toString() ?? payload['ChatID']?.toString();
+        final messageId = payload['message_id']?.toString() ?? payload['MessageID']?.toString() ?? payload['id']?.toString() ?? payload['ID']?.toString();
+        final statusRaw = payload['status'] ?? payload['Status'];
+        
+        if (chatId == null || messageId == null || currentState.chatId != chatId) return;
+        
+        MessageStatus newStatus = MessageStatus.sent;
+        if (statusRaw is int) {
+          if (statusRaw == 3) newStatus = MessageStatus.read;
+          else if (statusRaw == 2) newStatus = MessageStatus.delivered;
+          else if (statusRaw == 1) newStatus = MessageStatus.sent;
+          else if (statusRaw == 0) newStatus = MessageStatus.sending;
+        } else if (statusRaw is String) {
+          final s = statusRaw.toLowerCase();
+          if (s == 'read' || s == 'seen') newStatus = MessageStatus.read;
+          else if (s == 'delivered') newStatus = MessageStatus.delivered;
+          else if (s == 'sent') newStatus = MessageStatus.sent;
+        }
+
+        final updatedMessages = List<MessageModel>.from(currentState.messages);
+        final index = updatedMessages.indexWhere((m) => m.id == messageId || m.clientMessageId == messageId);
+        
+        if (index != -1) {
+          final msg = updatedMessages[index];
+          if (newStatus.index > msg.status.index) {
+            updatedMessages[index] = msg.copyWith(status: newStatus);
+            emit(currentState.copyWith(messages: updatedMessages));
+          }
+        }
       }
     }
   }
