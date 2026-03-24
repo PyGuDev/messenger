@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import '../security/token_storage.dart';
 
 /// Handles 401 errors by refreshing the access token.
@@ -29,12 +30,12 @@ class AuthInterceptor extends Interceptor {
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) async {
     if (err.response?.statusCode == 401) {
-      print('[AuthInterceptor] 401 Detected. Attempting token refresh...');
+      debugPrint('[AuthInterceptor] 401 Detected. Attempting token refresh...');
       
       try {
         final newToken = await _refreshToken();
         if (newToken != null) {
-          print('[AuthInterceptor] Refresh successful. Retrying original request.');
+          debugPrint('[AuthInterceptor] Refresh successful. Retrying original request.');
           // Retry the original request with the new token
           final options = err.requestOptions;
           options.headers['Authorization'] = 'Bearer $newToken';
@@ -45,12 +46,12 @@ class AuthInterceptor extends Interceptor {
           
           return handler.resolve(retryResponse);
         } else {
-          print('[AuthInterceptor] Refresh returned null token. Proceeding with error.');
+          debugPrint('[AuthInterceptor] Refresh returned null token. Proceeding with error.');
           await _tokenStorage.clearTokens();
           onTokenExpired();
         }
       } catch (e) {
-        print('[AuthInterceptor] Refresh failed with error: $e');
+        debugPrint('[AuthInterceptor] Refresh failed with error: $e');
         // Refresh failed — clear tokens and potentially redirect to login
         await _tokenStorage.clearTokens();
         onTokenExpired();

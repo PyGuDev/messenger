@@ -213,6 +213,7 @@ class _MessagesScreenState extends State<MessagesScreen> with WidgetsBindingObse
     final authorName = userNames[message.authorId] ?? 'User';
 
     final bubble = Align(
+      key: key,
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
@@ -286,7 +287,7 @@ class _MessagesScreenState extends State<MessagesScreen> with WidgetsBindingObse
                               Text(
                                 repliedMessage.text,
                                 style: TextStyle(
-                                  color: isMine ? AppColors.textOnAccent.withOpacity(0.66) : AppColors.textPrimary,
+                                  color: isMine ? AppColors.textOnAccent.withValues(alpha: 0.66) : AppColors.textPrimary,
                                   fontSize: 13,
                                 ),
                                 maxLines: 1,
@@ -344,7 +345,6 @@ class _MessagesScreenState extends State<MessagesScreen> with WidgetsBindingObse
           ],
         ),
       ),
-      key: key,
     );
 
     return Dismissible(

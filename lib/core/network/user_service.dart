@@ -1,12 +1,15 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 class UserProfile {
+  final String id;
   final String firstName;
   final String lastName;
   final String phone;
 
   const UserProfile({
+    this.id = '',
     required this.firstName,
     required this.lastName,
     required this.phone,
@@ -14,6 +17,7 @@ class UserProfile {
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
     return UserProfile(
+      id: (json['id'] as String?) ?? (json['ID'] as String?) ?? (json['userId'] as String?) ?? (json['userID'] as String?) ?? '',
       firstName: (json['firstName'] as String?) ?? '',
       lastName: (json['lastName'] as String?) ?? '',
       phone: (json['phone'] as String?) ?? '',
@@ -83,11 +87,35 @@ class UserService {
       
       if (queryParams.isEmpty) return [];
 
-      final response = await _dio.get('/users/search', queryParameters: queryParams);
-      final data = response.data;
+      final response = await _dio.get(
+        '/users/search', 
+        queryParameters: queryParams,
+        options: Options(responseType: ResponseType.plain),
+      );
+      final rawBody = response.data as String;
+      debugPrint('[UserService] searchUser RAW JSON BODY: $rawBody');
+      
+      // Parse the raw JSON manually
+      final dynamic data;
+      try {
+        data = jsonDecode(rawBody);
+      } catch (e) {
+        debugPrint('[UserService] Failed to parse JSON: $e');
+        return [];
+      }
+      debugPrint('[UserService] searchUser parsed data: $data');
       
       if (data is List) {
-        return data.map((e) => UserProfile.fromJson(e as Map<String, dynamic>)).toList();
+        for (final e in data) {
+          if (e is Map<String, dynamic>) {
+            debugPrint('[UserService] item keys: ${e.keys.toList()}, full item: $e');
+          }
+        }
+        final results = data.map((e) => UserProfile.fromJson(e as Map<String, dynamic>)).toList();
+        for (final p in results) {
+          debugPrint('[UserService] parsed profile: id=${p.id}, firstName=${p.firstName}, phone=${p.phone}');
+        }
+        return results;
       }
       return [];
     } catch (_) {

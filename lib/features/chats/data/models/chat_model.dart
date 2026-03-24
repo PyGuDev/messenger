@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:flutter/foundation.dart';
 
 class MemberModel extends Equatable {
   final String userId;
@@ -84,7 +85,7 @@ class ChatModel extends Equatable {
         if (lm != null) {
           return LastMessageModel.fromJson(lm as Map<String, dynamic>);
         }
-        print('ChatModel fromJson: No last_message found in $json');
+        debugPrint('ChatModel fromJson: No last_message found in $json');
         return null;
       }(),
       unreadCount: json['unread_count'] ?? json['UnreadCount'] ?? json['unreadCount'] as int? ?? 0,

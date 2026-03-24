@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import '../di/injection_container.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
@@ -10,6 +9,8 @@ import '../../features/auth/presentation/screens/register_screen.dart';
 import '../../features/messages/presentation/screens/messages_screen.dart';
 import '../../features/chats/presentation/screens/create_chat_screen.dart';
 import '../../features/contacts/presentation/screens/create_contact_screen.dart';
+import '../../features/contacts/presentation/screens/contact_profile_screen.dart';
+import 'package:flutter/material.dart';
 import 'main_screen.dart';
 class GoRouterRefreshStream extends ChangeNotifier {
   late final StreamSubscription<dynamic> _subscription;
@@ -77,6 +78,20 @@ final router = GoRouter(
     GoRoute(
       path: '/create-contact',
       builder: (context, state) => const CreateContactScreen(),
+    ),
+    GoRoute(
+      path: '/contact-profile',
+      builder: (context, state) {
+        final Map<String, dynamic> extra = state.extra as Map<String, dynamic>? ?? {};
+        return ContactProfileScreen(
+          name: extra['name'] as String? ?? 'Unknown',
+          phone: extra['phone'] as String? ?? '',
+          color: extra['color'] as Color? ?? Colors.grey,
+          isOnline: extra['isOnline'] as bool? ?? false,
+          inMessenger: extra['inMessenger'] as bool? ?? false,
+          userId: extra['userId'] as String?,
+        );
+      },
     ),
   ],
 );

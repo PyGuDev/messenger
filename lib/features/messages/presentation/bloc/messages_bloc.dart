@@ -360,15 +360,15 @@ class MessagesBloc extends Bloc<MessagesEvent, MessagesState> {
         
         MessageStatus newStatus = MessageStatus.sent;
         if (statusRaw is int) {
-          if (statusRaw == 3) newStatus = MessageStatus.read;
-          else if (statusRaw == 2) newStatus = MessageStatus.delivered;
-          else if (statusRaw == 1) newStatus = MessageStatus.sent;
-          else if (statusRaw == 0) newStatus = MessageStatus.sending;
+          if (statusRaw == 3) { newStatus = MessageStatus.read; }
+          else if (statusRaw == 2) { newStatus = MessageStatus.delivered; }
+          else if (statusRaw == 1) { newStatus = MessageStatus.sent; }
+          else if (statusRaw == 0) { newStatus = MessageStatus.sending; }
         } else if (statusRaw is String) {
           final s = statusRaw.toLowerCase();
-          if (s == 'read' || s == 'seen') newStatus = MessageStatus.read;
-          else if (s == 'delivered') newStatus = MessageStatus.delivered;
-          else if (s == 'sent') newStatus = MessageStatus.sent;
+          if (s == 'read' || s == 'seen') { newStatus = MessageStatus.read; }
+          else if (s == 'delivered') { newStatus = MessageStatus.delivered; }
+          else if (s == 'sent') { newStatus = MessageStatus.sent; }
         }
 
         final updatedMessages = List<MessageModel>.from(currentState.messages);

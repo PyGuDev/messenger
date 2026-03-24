@@ -61,15 +61,19 @@ class _ContactsScreenState extends State<ContactsScreen> {
       colorIndex++;
     }
     
+    _allContacts = items;
     if (mounted) {
-      setState(() {
-        _allContacts = items;
-        _isLoadingContacts = false;
-      });
+      setState(() {});
     }
     
     if (items.isNotEmpty) {
-      _syncWithBackend();
+      await _syncWithBackend();
+    }
+
+    if (mounted) {
+      setState(() {
+        _isLoadingContacts = false;
+      });
     }
   }
 
@@ -95,7 +99,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
               setState(() {
                 final index = _allContacts.indexOf(item);
                 if (index != -1) {
-                  _allContacts[index] = _ContactItem(item.name, item.phone, item.color, true, true);
+                  _allContacts[index] = _ContactItem(item.name, item.phone, item.color, true, true, profiles.first.id);
                 }
               });
             }
@@ -112,8 +116,9 @@ class _ContactsScreenState extends State<ContactsScreen> {
   }
 
   List<_ContactItem> get _filteredContacts {
-    if (_searchQuery.isEmpty) return _allContacts;
-    return _allContacts
+    final systemContacts = _allContacts.where((c) => c.inMessenger).toList();
+    if (_searchQuery.isEmpty) return systemContacts;
+    return systemContacts
         .where((c) => c.name.toLowerCase().contains(_searchQuery.toLowerCase()))
         .toList();
   }
@@ -151,16 +156,6 @@ class _ContactsScreenState extends State<ContactsScreen> {
                       fontFamily: 'Inter',
                       letterSpacing: -0.5,
                     ),
-                  ),
-                  GestureDetector(
-                    onTap: () async {
-                      final result = await context.push<bool>('/create-contact');
-                      if (result == true && mounted) {
-                        setState(() => _isLoadingContacts = true);
-                        _fetchContacts();
-                      }
-                    },
-                    child: const Icon(Icons.add, color: AppColors.textTertiary, size: 22),
                   ),
                 ],
               ),
@@ -236,6 +231,18 @@ class _ContactsScreenState extends State<ContactsScreen> {
           ],
         ),
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          final result = await context.push<bool>('/create-contact');
+          if (result == true && mounted) {
+            setState(() => _isLoadingContacts = true);
+            _fetchContacts();
+          }
+        },
+        backgroundColor: AppColors.accentBlue,
+        shape: const CircleBorder(),
+        child: const Icon(Icons.add, color: Colors.white),
+      ),
     );
   }
 
@@ -244,16 +251,27 @@ class _ContactsScreenState extends State<ContactsScreen> {
     final initials = nameParts.isEmpty ? '?' : nameParts.map((w) => w[0]).take(2).join().toUpperCase();
     final hasMessenger = contact.inMessenger;
 
-    return Container(
-      height: 64,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      margin: const EdgeInsets.only(bottom: 2),
-      decoration: BoxDecoration(
-        color: hasMessenger ? AppColors.accentBlueLight : Colors.transparent,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        children: [
+    return GestureDetector(
+      onTap: () {
+        context.push('/contact-profile', extra: {
+          'name': contact.name,
+          'phone': contact.phone,
+          'color': contact.color,
+          'isOnline': contact.isOnline,
+          'inMessenger': contact.inMessenger,
+          'userId': contact.userId,
+        });
+      },
+      child: Container(
+        height: 64,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        margin: const EdgeInsets.only(bottom: 2),
+        decoration: BoxDecoration(
+          color: hasMessenger ? AppColors.accentBlueLight : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: [
           // Avatar
           Container(
             width: 44,
@@ -321,8 +339,9 @@ class _ContactsScreenState extends State<ContactsScreen> {
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 class _ContactItem {
@@ -331,6 +350,7 @@ class _ContactItem {
   final Color color;
   final bool isOnline;
   final bool inMessenger;
+  final String? userId;
 
-  _ContactItem(this.name, this.phone, this.color, this.isOnline, this.inMessenger);
+  _ContactItem(this.name, this.phone, this.color, this.isOnline, this.inMessenger, [this.userId]);
 }
