@@ -6,6 +6,7 @@ import '../../features/auth/presentation/bloc/auth_state.dart';
 import '../../features/auth/presentation/screens/welcome_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/register_screen.dart';
+import '../../features/auth/presentation/screens/splash_screen.dart';
 import '../../features/messages/presentation/screens/messages_screen.dart';
 import '../../features/chats/presentation/screens/create_chat_screen.dart';
 import '../../features/contacts/presentation/screens/create_contact_screen.dart';
@@ -35,20 +36,34 @@ final router = GoRouter(
   refreshListenable: GoRouterRefreshStream(sl<AuthBloc>().stream),
   redirect: (context, state) {
     final authState = sl<AuthBloc>().state;
-    final isAuthRoute = state.matchedLocation == '/' || 
+    
+    // While checking auth status, stay on splash screen
+    if (authState is AuthInitial || authState is AuthLoading) {
+      if (state.matchedLocation != '/') return '/';
+      return null;
+    }
+
+    final isAuthRoute = state.matchedLocation == '/welcome' || 
                         state.matchedLocation == '/login' || 
                         state.matchedLocation == '/register';
 
     if (authState is AuthAuthenticated) {
-      if (isAuthRoute) return '/chats';
+      // If logged in, don't allow auth routes or splash
+      if (isAuthRoute || state.matchedLocation == '/') return '/chats';
     } else if (authState is AuthUnauthenticated) {
-      if (!isAuthRoute) return '/';
+      // If not logged in, only allow auth routes
+      if (!isAuthRoute) return '/welcome';
     }
+    
     return null;
   },
   routes: [
     GoRoute(
       path: '/',
+      builder: (context, state) => const SplashScreen(),
+    ),
+    GoRoute(
+      path: '/welcome',
       builder: (context, state) => const WelcomeScreen(),
     ),
     GoRoute(
