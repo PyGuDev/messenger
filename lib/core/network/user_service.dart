@@ -7,12 +7,14 @@ class UserProfile {
   final String firstName;
   final String lastName;
   final String phone;
+  final String email;
 
   const UserProfile({
     this.id = '',
     required this.firstName,
     required this.lastName,
     required this.phone,
+    required this.email,
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
@@ -21,6 +23,7 @@ class UserProfile {
       firstName: (json['firstName'] as String?) ?? '',
       lastName: (json['lastName'] as String?) ?? '',
       phone: (json['phone'] as String?) ?? '',
+      email: (json['email'] as String?) ?? '',
     );
   }
 
@@ -75,7 +78,7 @@ class UserService {
       _cache[userId] = profile;
       return profile;
     } catch (e) {
-      return const UserProfile(firstName: '', lastName: '', phone: '');
+      return const UserProfile(firstName: '', lastName: '', phone: '', email: '');
     }
   }
 

@@ -3,6 +3,8 @@ import 'package:dio/dio.dart';
 import 'profile_event.dart';
 import 'profile_state.dart';
 
+import 'package:messenger/core/network/user_service.dart';
+
 class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
   // ignore: unused_field
   final Dio _dio;
@@ -16,13 +18,14 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
     emit(ProfileLoading());
     try {
       final response = await _dio.get('/profile');
-      final data = response.data;
+      final profile = UserProfile.fromJson(response.data);
       
       emit(ProfileLoaded(
-        firstName: data['first_name'] ?? '',
-        lastName: data['last_name'] ?? '',
-        email: data['email'] ?? '',
-        phone: data['phone'],
+        id: profile.id,
+        firstName: profile.firstName,
+        lastName: profile.lastName,
+        email: profile.email,
+        phone: profile.phone,
       ));
     } catch (e) {
       emit(ProfileError(e.toString()));
@@ -35,18 +38,20 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
       emit(ProfileLoading());
       try {
         final response = await _dio.patch('/profile', data: {
-          if (event.firstName != null) 'first_name': event.firstName,
-          if (event.lastName != null) 'last_name': event.lastName,
+          if (event.firstName != null) 'firstName': event.firstName,
+          if (event.lastName != null) 'lastName': event.lastName,
           if (event.phone != null) 'phone': event.phone,
+          if (event.email != null) 'email': event.email,
         });
         
-        final data = response.data;
+        final profile = UserProfile.fromJson(response.data);
         
         emit(ProfileLoaded(
-          firstName: data['first_name'] ?? currentState.firstName,
-          lastName: data['last_name'] ?? currentState.lastName,
-          email: currentState.email,
-          phone: data['phone'] ?? currentState.phone,
+          id: profile.id.isNotEmpty ? profile.id : currentState.id,
+          firstName: profile.firstName.isNotEmpty ? profile.firstName : currentState.firstName,
+          lastName: profile.lastName.isNotEmpty ? profile.lastName : currentState.lastName,
+          email: profile.email.isNotEmpty ? profile.email : currentState.email,
+          phone: profile.phone.isNotEmpty ? profile.phone : currentState.phone,
         ));
       } catch (e) {
         emit(ProfileError(e.toString()));

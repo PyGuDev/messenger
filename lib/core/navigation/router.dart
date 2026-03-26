@@ -10,6 +10,7 @@ import '../../features/messages/presentation/screens/messages_screen.dart';
 import '../../features/chats/presentation/screens/create_chat_screen.dart';
 import '../../features/contacts/presentation/screens/create_contact_screen.dart';
 import '../../features/contacts/presentation/screens/contact_profile_screen.dart';
+import '../../features/profile/presentation/screens/edit_profile_screen.dart';
 import 'package:flutter/material.dart';
 import 'main_screen.dart';
 class GoRouterRefreshStream extends ChangeNotifier {
@@ -92,6 +93,10 @@ final router = GoRouter(
           userId: extra['userId'] as String?,
         );
       },
+    ),
+    GoRoute(
+      path: '/edit-profile',
+      builder: (context, state) => const EditProfileScreen(),
     ),
   ],
 );

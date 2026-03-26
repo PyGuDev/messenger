@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:messenger/shared/theme/app_colors.dart';
@@ -320,35 +319,7 @@ class _ContactProfileScreenState extends State<ContactProfileScreen> {
                 ),
               ),
 
-              const SizedBox(height: 24), // Spacer
-
-              // Delete Button
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
-                child: Container(
-                  height: 48,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.error, width: 1.5),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      Icon(Icons.delete_outline, color: AppColors.error, size: 18),
-                      SizedBox(width: 8),
-                      Text(
-                        'Удалить контакт',
-                        style: TextStyle(
-                          color: AppColors.error,
-                          fontFamily: 'Inter',
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+              const SizedBox(height: 32),
             ],
           ),
         ),
