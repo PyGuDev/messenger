@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:dio/dio.dart';
 import '../../../../core/network/websocket_service.dart';
 import '../../../../core/network/user_service.dart';
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/security/token_storage.dart';
 import '../../data/models/chat_model.dart';
 import 'chats_event.dart';
@@ -99,7 +100,11 @@ class ChatsBloc extends Bloc<ChatsEvent, ChatsState> {
       });
       
       final Map<String, dynamic> responseData = response.data;
-      final List<dynamic> chatsData = responseData['data']['chats'];
+      if (responseData['status'] == 'error') {
+        throw ChatApiException.fromJson(responseData);
+      }
+      
+      final List<dynamic> chatsData = responseData['data']['chats'] ?? [];
       var chats = chatsData.map((json) => ChatModel.fromJson(json)).toList();
 
       chats = await _resolvePersonalChatNames(chats);
@@ -123,7 +128,11 @@ class ChatsBloc extends Bloc<ChatsEvent, ChatsState> {
         });
 
         final Map<String, dynamic> responseData = response.data;
-        final List<dynamic> newChatsData = responseData['data']['chats'];
+        if (responseData['status'] == 'error') {
+          throw ChatApiException.fromJson(responseData);
+        }
+
+        final List<dynamic> newChatsData = responseData['data']['chats'] ?? [];
         var newChats = newChatsData.map((json) => ChatModel.fromJson(json)).toList();
 
         newChats = await _resolvePersonalChatNames(newChats);
@@ -140,10 +149,14 @@ class ChatsBloc extends Bloc<ChatsEvent, ChatsState> {
 
   Future<void> _onCreateChat(CreateChat event, Emitter<ChatsState> emit) async {
     try {
-      await _dio.post('/chats', data: {
+      final response = await _dio.post('/chats', data: {
         'type': 1, // Private chat
         'member_ids': [event.userId],
       });
+      
+      if (response.data['status'] == 'error') {
+        throw ChatApiException.fromJson(response.data);
+      }
       
       // Reload chats to get the new chat with full metadata
       add(LoadChats());
@@ -185,21 +198,18 @@ class ChatsBloc extends Bloc<ChatsEvent, ChatsState> {
           // If chat not in list, reload all
           add(LoadChats());
         }
-      } else if (eventData['type'] == 'chat_read' || eventData['type'] == 'message_read' || eventData['type'] == 'read' || eventData['type'] == 'seen') {
+      } else if (eventData['type'] == 'message_read') {
         final payload = eventData['payload'];
         if (payload == null) return;
         
-        final chatId = (payload['chat_id'] ?? payload['ChatID'] ?? payload['id'] ?? payload['ID'])?.toString();
-        final readerId = (payload['user_id'] ?? payload['UserID'] ?? payload['reader_id'] ?? payload['reader'] ?? payload['sender_id'])?.toString();
-        final upToStr = (payload['up_to'] ?? payload['UpTo'] ?? payload['read_up_to'] ?? payload['created_at'] ?? payload['CreatedAt'] ?? payload['timestamp'])?.toString();
-        if (chatId == null || upToStr == null) return;
+        final chatId = payload['chat_id']?.toString();
+        final readerId = payload['user_id']?.toString();
+        if (chatId == null) return;
 
         final currentUserIdFromStorage = await _getCurrentUserId();
         final myId = (currentUserIdFromStorage ?? '').trim();
         final rId = readerId?.trim();
         
-        // Logic: if I read it OR someone else read it, we might need to reset unread count
-        // In ChatsBloc, we ONLY reset unread count if WE are the reader.
         if (rId == null || rId == myId) {
           final existingChatIndex = currentState.chats.indexWhere((c) => c.id == chatId);
           if (existingChatIndex != -1) {

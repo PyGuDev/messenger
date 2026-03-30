@@ -7,6 +7,28 @@ class NetworkModule {
   static const String authBaseUrl = 'http://192.168.8.236:8002/api/v1';
   static const String chatBaseUrl = 'http://192.168.8.236:8003/api/v1';
   static const String wsBaseUrl = 'ws://192.168.8.236:8003/ws';
+  static const String fileBaseUrl = 'http://192.168.8.236:8080';
+
+  static Dio createFileDio(
+    TokenStorage tokenStorage,
+    Dio authDio, {
+    required void Function() onTokenExpired,
+  }) {
+    final dio = Dio(
+      BaseOptions(
+        baseUrl: fileBaseUrl,
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 10),
+      ),
+    );
+
+    dio.interceptors.add(
+      AuthInterceptor(tokenStorage, authDio, onTokenExpired: onTokenExpired),
+    );
+    dio.interceptors.add(LogInterceptor(requestBody: true, responseBody: true));
+
+    return dio;
+  }
 
   static Dio createAuthDio(
     TokenStorage tokenStorage,

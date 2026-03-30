@@ -1,9 +1,12 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:dio/dio.dart';
 import 'package:uuid/uuid.dart';
+import 'package:messenger/core/network/file_service.dart';
 import '../../../../core/network/websocket_service.dart';
 import '../../../../core/network/user_service.dart';
+import '../../../../core/network/api_exception.dart';
 import 'package:flutter/foundation.dart' as import_foundation;
 import 'package:messenger/core/security/token_storage.dart';
 import '../../data/models/message_model.dart';
@@ -15,17 +18,22 @@ class MessagesBloc extends Bloc<MessagesEvent, MessagesState> {
   final WebSocketService _wsService;
   final TokenStorage _tokenStorage;
   final UserService _userService;
+  final FileService _fileService;
   StreamSubscription? _wsSubscription;
   
   String? _currentUserId;
 
-  MessagesBloc(this._dio, this._wsService, this._tokenStorage, this._userService) : super(MessagesInitial()) {
+  MessagesBloc(this._dio, this._wsService, this._tokenStorage, this._userService, this._fileService) : super(MessagesInitial()) {
     on<LoadMessages>(_onLoadMessages);
     on<LoadMoreMessages>(_onLoadMoreMessages);
     on<SendMessage>(_onSendMessage);
+    on<SendVoiceMessage>(_onSendVoiceMessage);
     on<ResendMessage>(_onResendMessage);
     on<MarkMessagesAsRead>(_onMarkMessagesAsRead);
     on<OnWebSocketEvent>(_onWebSocketEvent);
+    on<EditMessage>(_onEditMessage);
+    on<DeleteMessage>(_onDeleteMessage);
+    on<ForwardMessages>(_onForwardMessages);
 
     _wsSubscription = _wsService.events.listen((event) {
       add(OnWebSocketEvent(event));
@@ -85,7 +93,11 @@ class MessagesBloc extends Bloc<MessagesEvent, MessagesState> {
       });
       
       final Map<String, dynamic> responseData = response.data;
-      final List<dynamic> messagesData = responseData['data']['messages'];
+      if (responseData['status'] == 'error') {
+        throw ChatApiException.fromJson(responseData);
+      }
+      
+      final List<dynamic> messagesData = responseData['data']['messages'] ?? [];
       final messages = messagesData.map((json) => MessageModel.fromJson(json)).toList();
 
       final userNames = await _resolveUserNames(messages, {});
@@ -115,7 +127,11 @@ class MessagesBloc extends Bloc<MessagesEvent, MessagesState> {
         });
         
         final Map<String, dynamic> responseData = response.data;
-        final List<dynamic> newMessagesData = responseData['data']['messages'];
+        if (responseData['status'] == 'error') {
+          throw ChatApiException.fromJson(responseData);
+        }
+        
+        final List<dynamic> newMessagesData = responseData['data']['messages'] ?? [];
         final newMessages = newMessagesData.map((json) => MessageModel.fromJson(json)).toList();
 
         final userNames = await _resolveUserNames(newMessages, currentState.userNames);
@@ -163,6 +179,10 @@ class MessagesBloc extends Bloc<MessagesEvent, MessagesState> {
 
         final response = await _dio.post('/chats/${event.chatId}/messages', data: data);
         
+        if (response.data['status'] == 'error') {
+          throw ChatApiException.fromJson(response.data);
+        }
+        
         final serverMessage = MessageModel.fromJson(response.data['data']);
         
         final resolvedMessages = updatedMessages.map((m) {
@@ -200,6 +220,10 @@ class MessagesBloc extends Bloc<MessagesEvent, MessagesState> {
           'body': messageToResend.text,
           'client_message_id': event.clientMessageId,
         });
+        
+        if (response.data['status'] == 'error') {
+          throw ChatApiException.fromJson(response.data);
+        }
         
         final serverMessage = MessageModel.fromJson(response.data['data']);
         
@@ -261,59 +285,24 @@ class MessagesBloc extends Bloc<MessagesEvent, MessagesState> {
             import_foundation.debugPrint('Error parsing websocket message: $e');
           }
         }
-      } else if (eventData['type'] == 'chat_read' || eventData['type'] == 'message_read') {
+      } else if (eventData['type'] == 'message_read') {
         final payload = eventData['payload'];
         if (payload == null) return;
         
-        // Debug logging to understand server response
-        import_foundation.debugPrint('Received read event: $eventData');
-        
-        // Debug logging to understand server response
-        import_foundation.debugPrint('Received read event payload keys: ${payload.keys.toList()}');
-        
-        String? chatId;
-        String? readerId;
-        String? upToStr;
-
-        // Exhaustive search for keys
-        payload.forEach((key, value) {
-          final k = key.toString().toLowerCase();
-          final v = value?.toString();
-          if (v == null) return;
-
-          if (k.contains('chat_id') || k == 'id') {
-            chatId ??= v;
-          } else if (k.contains('user_id') || k.contains('reader') || (k.contains('sender') && !k.contains('author'))) {
-            readerId ??= v;
-          } else if (k.contains('up_to') || k.contains('timestamp') || k.contains('created_at')) {
-            upToStr ??= v;
-          }
-        });
+        final chatId = payload['chat_id']?.toString();
+        final readerId = payload['user_id']?.toString();
+        final upToStr = payload['read_up_to']?.toString();
         
         final currentChatId = currentState.chatId;
-        if (chatId == null || upToStr == null || currentChatId != chatId) {
-          import_foundation.debugPrint('Read event ignored: chatId=$chatId, upTo=$upToStr, currentChatId=$currentChatId');
-          return;
-        }
+        if (chatId == null || upToStr == null || currentChatId != chatId) return;
         
-        DateTime? upTo = DateTime.tryParse(upToStr!);
-        String? upToId;
-        if (upTo == null) {
-          // If not a date, maybe it's a message ID?
-          upToId = upToStr;
-        }
+        DateTime? upTo = DateTime.tryParse(upToStr);
+        if (upTo == null) return;
 
-        // Ensure we have myId
         final myIdFromStorage = await _getCurrentUserId();
         final myId = (myIdFromStorage ?? currentState.currentUserId).trim();
         final rId = readerId?.trim();
         
-        // Find index if we have an ID-based upTo
-        int? upToIndex;
-        if (upToId != null) {
-          upToIndex = currentState.messages.indexWhere((m) => m.id == upToId);
-        }
-
         final updatedMessages = List<MessageModel>.from(currentState.messages);
         for (int i = 0; i < updatedMessages.length; i++) {
           final m = updatedMessages[i];
@@ -327,21 +316,9 @@ class MessagesBloc extends Bloc<MessagesEvent, MessagesState> {
           }
 
           if (shouldMarkAsRead && m.status != MessageStatus.read) {
-            bool isBefore = false;
-            if (upTo != null) {
-              // Use a small buffer (1sec) for safety with timestamps
-              final upToBuffered = upTo.add(const Duration(seconds: 1));
-              isBefore = m.createdAt.isBefore(upToBuffered);
-            } else if (upToIndex != null) {
-              // If we are at or "above" (older) than the message with upToId
-              // Note: list is usually reversed (newest first), so index >= upToIndex depends on order.
-              // Assuming latest messages are at the BEGINNING of the list (typical for list.map)
-              // But list is typically 0: latest, N: oldest in our bloc.
-              // So messages from index to end are OLDER.
-              isBefore = (i >= upToIndex);
-            }
-
-            if (isBefore) {
+            // Use a small buffer (1sec) for safety with timestamps
+            final upToBuffered = upTo.add(const Duration(seconds: 1));
+            if (m.createdAt.isBefore(upToBuffered)) {
               updatedMessages[i] = m.copyWith(status: MessageStatus.read);
             }
           }
@@ -381,6 +358,169 @@ class MessagesBloc extends Bloc<MessagesEvent, MessagesState> {
             emit(currentState.copyWith(messages: updatedMessages));
           }
         }
+      }
+    }
+  }
+
+  Future<void> _onSendVoiceMessage(
+    SendVoiceMessage event,
+    Emitter<MessagesState> emit,
+  ) async {
+    if (state is! MessagesLoaded) return;
+    final currentState = state as MessagesLoaded;
+
+    final clientMessageId = const Uuid().v4();
+    final now = DateTime.now();
+
+    // 1. Create optimistic message
+    final tempMessage = MessageModel(
+      id: clientMessageId,
+      chatId: event.chatId,
+      authorId: _currentUserId ?? '',
+      text: '',
+      createdAt: now,
+      updatedAt: now,
+      status: MessageStatus.sending,
+      clientMessageId: clientMessageId,
+      attachedContent: [
+        AttachedContentModel(
+          id: '',
+          fileName: 'voice.m4a',
+          fileSize: 0,
+          accessKey: '',
+          typeContent: 'voice',
+          mimeType: 'audio/mp4',
+        ),
+      ],
+    );
+
+    final updatedMessages = [tempMessage, ...currentState.messages];
+    emit(currentState.copyWith(messages: updatedMessages));
+
+    try {
+      // 2. Upload to File Service
+      final file = File(event.filePath);
+      final fileSize = await file.length();
+      final fileName = event.filePath.split('/').last;
+
+      final uploadRes = await _fileService.uploadFile(
+        event.filePath,
+        fileName,
+      );
+
+      // 3. Send to Chat API
+      final response = await _dio.post(
+        '/chats/${event.chatId}/messages',
+        data: {
+          'body': '',
+          'client_message_id': clientMessageId,
+          'reply_to_message_id': event.replyToMessageId,
+          'attached_content': [
+            {
+              'type_content': 'voice',
+              'access_key': uploadRes.accessKey,
+              'file_name': fileName,
+              'file_size': fileSize,
+              'mime_type': 'audio/mp4',
+            }
+          ],
+        },
+      );
+
+      import_foundation.debugPrint('MessagesBloc: POST /messages response: ${response.data}');
+
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        final serverMessage = MessageModel.fromJson(response.data['data']);
+        if (state is MessagesLoaded) {
+          final currentStateNow = state as MessagesLoaded;
+          final finalMessages = currentStateNow.messages.map((m) {
+            return m.clientMessageId == clientMessageId ? serverMessage : m;
+          }).toList();
+          emit(currentStateNow.copyWith(messages: finalMessages));
+        }
+      }
+    } catch (e) {
+      if (state is MessagesLoaded) {
+        final currentStateNow = state as MessagesLoaded;
+        final errorMessages = currentStateNow.messages.map((m) {
+          if (m.clientMessageId == clientMessageId) {
+            return m.copyWith(status: MessageStatus.failed);
+          }
+          return m;
+        }).toList();
+        emit(currentStateNow.copyWith(messages: errorMessages));
+      }
+    }
+  }
+
+  Future<void> _onEditMessage(EditMessage event, Emitter<MessagesState> emit) async {
+    if (state is MessagesLoaded) {
+      final currentState = state as MessagesLoaded;
+      try {
+        final response = await _dio.patch(
+          '/chats/${event.chatId}/messages/${event.messageId}',
+          data: {'body': event.newBody},
+        );
+
+        if (response.data['status'] == 'error') {
+          throw ChatApiException.fromJson(response.data);
+        }
+
+        final updatedMessage = MessageModel.fromJson(response.data['data']);
+        final updatedMessages = currentState.messages.map((m) {
+          return m.id == event.messageId ? updatedMessage : m;
+        }).toList();
+
+        emit(currentState.copyWith(messages: updatedMessages));
+      } catch (e) {
+        // Handle error (maybe re-emit state with error)
+      }
+    }
+  }
+
+  Future<void> _onDeleteMessage(DeleteMessage event, Emitter<MessagesState> emit) async {
+    if (state is MessagesLoaded) {
+      final currentState = state as MessagesLoaded;
+      try {
+        final response = await _dio.delete(
+          '/chats/${event.chatId}/messages/${event.messageId}',
+          data: {'for_everyone': event.forEveryone},
+        );
+
+        if (response.data != null && response.data != '' && response.data['status'] == 'error') {
+          throw ChatApiException.fromJson(response.data);
+        }
+
+        final updatedMessages = List<MessageModel>.from(currentState.messages)
+          ..removeWhere((m) => m.id == event.messageId);
+
+        emit(currentState.copyWith(messages: updatedMessages));
+      } catch (e) {
+        // Handle error
+      }
+    }
+  }
+
+  Future<void> _onForwardMessages(ForwardMessages event, Emitter<MessagesState> emit) async {
+    if (state is MessagesLoaded) {
+      final currentState = state as MessagesLoaded;
+      try {
+        final response = await _dio.post(
+          '/chats/${event.chatId}/messages/forward',
+          data: {'message_ids': event.messageIds},
+        );
+
+        if (response.data['status'] == 'error') {
+          throw ChatApiException.fromJson(response.data);
+        }
+
+        final List<dynamic> newMessagesData = response.data['data']['messages'];
+        final newMessages = newMessagesData.map((json) => MessageModel.fromJson(json)).toList();
+
+        final updatedMessages = List<MessageModel>.from(currentState.messages)..insertAll(0, newMessages);
+        emit(currentState.copyWith(messages: updatedMessages));
+      } catch (e) {
+        // Handle error
       }
     }
   }

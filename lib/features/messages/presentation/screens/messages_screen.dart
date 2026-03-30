@@ -10,6 +10,8 @@ import 'package:messenger/shared/theme/app_colors.dart';
 import 'package:messenger/features/messages/presentation/bloc/messages_bloc.dart';
 import 'package:messenger/features/messages/presentation/bloc/messages_event.dart';
 import 'package:messenger/features/messages/presentation/bloc/messages_state.dart';
+import 'package:messenger/features/messages/presentation/widgets/voice_recorder_widget.dart';
+import 'package:messenger/features/messages/presentation/widgets/voice_message_bubble.dart';
 import '../../data/models/message_model.dart';
 
 import 'package:messenger/shared/widgets/error_display.dart';
@@ -30,6 +32,7 @@ class _MessagesScreenState extends State<MessagesScreen> with WidgetsBindingObse
   final ScrollController _scrollController = ScrollController();
   bool _isSendButtonActive = false;
   bool _emojiVisible = false;
+  bool _isRecording = false;
   MessageModel? _replyingToMessage;
   final Map<String, GlobalKey> _messageKeys = {};
   String? _highlightedMessageId;
@@ -302,13 +305,19 @@ class _MessagesScreenState extends State<MessagesScreen> with WidgetsBindingObse
                 ),
               ),
             ],
-            Text(
-              message.text,
-              style: TextStyle(
-                color: isMine ? AppColors.textOnAccent : AppColors.textPrimary,
-                fontSize: 15,
+            if (message.attachedContent.any((c) => c.typeContent == 'voice')) ...[
+              VoiceMessageBubble(
+                accessKey: message.attachedContent.firstWhere((c) => c.typeContent == 'voice').accessKey,
+                isMe: isMine,
               ),
-            ),
+            ] else
+              Text(
+                message.text,
+                style: TextStyle(
+                  color: isMine ? AppColors.textOnAccent : AppColors.textPrimary,
+                  fontSize: 15,
+                ),
+              ),
             const SizedBox(height: 4),
             Row(
               mainAxisSize: MainAxisSize.min,
@@ -499,6 +508,26 @@ class _MessagesScreenState extends State<MessagesScreen> with WidgetsBindingObse
   }
 
   Widget _buildMessageInput() {
+    if (_isRecording) {
+      return VoiceRecorderWidget(
+        onSend: (path, duration) {
+          context.read<MessagesBloc>().add(SendVoiceMessage(
+            chatId: widget.chatId,
+            filePath: path,
+            duration: duration,
+            replyToMessageId: _replyingToMessage?.id,
+          ));
+          setState(() {
+            _isRecording = false;
+            _replyingToMessage = null;
+          });
+        },
+        onCancel: () {
+          setState(() => _isRecording = false);
+        },
+      );
+    }
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -569,7 +598,9 @@ class _MessagesScreenState extends State<MessagesScreen> with WidgetsBindingObse
             ),
             const SizedBox(width: 10),
             GestureDetector(
-              onTap: _isSendButtonActive ? _sendMessage : null,
+              onTap: _isSendButtonActive ? _sendMessage : () {
+                setState(() => _isRecording = true);
+              },
               child: Container(
                 width: 44,
                 height: 44,

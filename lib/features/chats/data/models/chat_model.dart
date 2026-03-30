@@ -1,5 +1,4 @@
 import 'package:equatable/equatable.dart';
-import 'package:flutter/foundation.dart';
 
 class MemberModel extends Equatable {
   final String userId;
@@ -73,24 +72,24 @@ class ChatModel extends Equatable {
 
   factory ChatModel.fromJson(Map<String, dynamic> json) {
     return ChatModel(
-      id: json['id'] as String,
-      type: json['type'] as int,
-      title: json['title'] as String?,
-      members: (json['members'] as List<dynamic>?)
+      id: (json['id'] ?? json['ID'])?.toString() ?? '',
+      type: (json['type'] ?? json['Type']) as int? ?? 1,
+      title: (json['title'] ?? json['Title'])?.toString(),
+      members: ((json['members'] ?? json['Members']) as List?)
               ?.map((e) => MemberModel.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          [],
+              .toList()
+              .cast<MemberModel>() ??
+          const <MemberModel>[],
       lastMessage: () {
-        final lm = json['last_message'] ?? json['LastMessage'] ?? json['lastMessage'];
+        final lm = json['last_message'] ?? json['LastMessage'];
         if (lm != null) {
           return LastMessageModel.fromJson(lm as Map<String, dynamic>);
         }
-        debugPrint('ChatModel fromJson: No last_message found in $json');
         return null;
       }(),
-      unreadCount: json['unread_count'] ?? json['UnreadCount'] ?? json['unreadCount'] as int? ?? 0,
-      createdAt: DateTime.parse((json['created_at'] ?? json['CreatedAt'] ?? json['createdAt'] as String?) ?? DateTime.now().toIso8601String()),
-      updatedAt: DateTime.parse((json['updated_at'] ?? json['UpdatedAt'] ?? json['updatedAt'] as String?) ?? (json['created_at'] ?? json['CreatedAt'] ?? json['createdAt'] as String?) ?? DateTime.now().toIso8601String()),
+      unreadCount: (json['unread_count'] ?? json['UnreadCount']) as int? ?? 0,
+      createdAt: DateTime.tryParse((json['created_at'] ?? json['CreatedAt'])?.toString() ?? '') ?? DateTime.now(),
+      updatedAt: DateTime.tryParse((json['updated_at'] ?? json['UpdatedAt'])?.toString() ?? '') ?? (DateTime.tryParse((json['created_at'] ?? json['CreatedAt'])?.toString() ?? '') ?? DateTime.now()),
     );
   }
 

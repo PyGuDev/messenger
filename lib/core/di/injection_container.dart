@@ -12,6 +12,8 @@ import '../../features/messages/presentation/bloc/messages_bloc.dart';
 import '../../features/network/presentation/bloc/network_bloc.dart';
 import '../network/websocket_service.dart';
 import '../network/network_info.dart';
+import '../network/file_service.dart';
+import '../network/voice_recorder_service.dart';
 import '../../features/auth/presentation/bloc/auth_event.dart';
 
 final sl = GetIt.instance; // sl stands for Service Locator
@@ -54,6 +56,15 @@ Future<void> init() async {
     instanceName: 'chatDio',
   );
 
+  sl.registerLazySingleton<Dio>(
+    () => NetworkModule.createFileDio(
+      sl(),
+      sl(instanceName: 'internalDio'),
+      onTokenExpired: () => sl<AuthBloc>().add(LogoutRequested()),
+    ),
+    instanceName: 'fileDio',
+  );
+
   sl.registerLazySingleton<WebSocketService>(
     () => WebSocketService(sl<TokenStorage>(), sl<NetworkInfo>()),
   );
@@ -61,6 +72,12 @@ Future<void> init() async {
   // Services
   sl.registerLazySingleton<UserService>(
     () => UserService(sl<Dio>(instanceName: 'authDio')),
+  );
+  sl.registerLazySingleton<FileService>(
+    () => FileService(sl<Dio>(instanceName: 'fileDio')),
+  );
+  sl.registerLazySingleton<VoiceRecorderService>(
+    () => VoiceRecorderService(),
   );
 
   // Bloc
@@ -77,7 +94,7 @@ Future<void> init() async {
     () => ChatsBloc(sl(instanceName: 'chatDio'), sl(), sl<UserService>(), sl<TokenStorage>()),
   );
   sl.registerFactory<MessagesBloc>(
-    () => MessagesBloc(sl(instanceName: 'chatDio'), sl(), sl(), sl<UserService>()),
+    () => MessagesBloc(sl(instanceName: 'chatDio'), sl(), sl(), sl<UserService>(), sl<FileService>()),
   );
 }
 

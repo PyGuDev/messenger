@@ -64,3 +64,51 @@ class OnWebSocketEvent extends MessagesEvent {
   List<Object?> get props => [event];
 }
 
+class SendVoiceMessage extends MessagesEvent {
+  final String chatId;
+  final String filePath;
+  final Duration duration;
+  final String? replyToMessageId;
+
+  const SendVoiceMessage({
+    required this.chatId,
+    required this.filePath,
+    required this.duration,
+    this.replyToMessageId,
+  });
+
+  @override
+  List<Object?> get props => [chatId, filePath, duration, replyToMessageId];
+}
+
+class EditMessage extends MessagesEvent {
+  final String chatId;
+  final String messageId;
+  final String newBody;
+
+  const EditMessage({required this.chatId, required this.messageId, required this.newBody});
+
+  @override
+  List<Object?> get props => [chatId, messageId, newBody];
+}
+
+class DeleteMessage extends MessagesEvent {
+  final String chatId;
+  final String messageId;
+  final bool forEveryone;
+
+  const DeleteMessage({required this.chatId, required this.messageId, required this.forEveryone});
+
+  @override
+  List<Object?> get props => [chatId, messageId, forEveryone];
+}
+
+class ForwardMessages extends MessagesEvent {
+  final String chatId;
+  final List<String> messageIds;
+
+  const ForwardMessages({required this.chatId, required this.messageIds});
+
+  @override
+  List<Object?> get props => [chatId, messageIds];
+}
