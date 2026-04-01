@@ -1,10 +1,4 @@
-enum MessageStatus {
-  sending,
-  sent,
-  delivered,
-  read,
-  failed,
-}
+enum MessageStatus { sending, sent, delivered, read, failed }
 
 class AttachedContentModel {
   final String id;
@@ -30,7 +24,9 @@ class AttachedContentModel {
       fileSize: (json['file_size'] ?? json['FileSize']) as int? ?? 0,
       mimeType: (json['mime_type'] ?? json['MimeType'])?.toString() ?? '',
       accessKey: (json['access_key'] ?? json['AccessKey'] ?? '').toString(),
-      typeContent: (json['type_content'] ?? json['TypeContent'])?.toString() ?? 'document',
+      typeContent:
+          (json['type_content'] ?? json['TypeContent'])?.toString() ??
+          'document',
     );
   }
 
@@ -73,14 +69,22 @@ class MessageModel {
   });
 
   factory MessageModel.fromJson(Map<String, dynamic> json) {
-    final createdAt = DateTime.tryParse((json['created_at'] ?? json['CreatedAt'])?.toString() ?? '') ?? DateTime.now();
+    final createdAt =
+        DateTime.tryParse(
+          (json['created_at'] ?? json['CreatedAt'])?.toString() ?? '',
+        ) ??
+        DateTime.now();
     return MessageModel(
       id: (json['id'] ?? json['ID'])?.toString() ?? '',
       chatId: (json['chat_id'] ?? json['ChatID'])?.toString() ?? '',
       authorId: (json['author_id'] ?? json['AuthorID'])?.toString() ?? '',
       text: (json['body'] ?? json['Body'])?.toString() ?? '',
       createdAt: createdAt,
-      updatedAt: DateTime.tryParse((json['updated_at'] ?? json['UpdatedAt'])?.toString() ?? '') ?? createdAt,
+      updatedAt:
+          DateTime.tryParse(
+            (json['updated_at'] ?? json['UpdatedAt'])?.toString() ?? '',
+          ) ??
+          createdAt,
       status: (() {
         final rawStatus = json['status'] ?? json['Status'];
         if (rawStatus is int) {
@@ -91,11 +95,18 @@ class MessageModel {
         }
         return MessageStatus.sent;
       })(),
-      clientMessageId: (json['client_message_id'] ?? json['ClientMessageID'])?.toString(),
-      replyToMessageId: (json['reply_to_message_id'] ?? json['ReplyToMessageID'])?.toString(),
-      forwardedFromMessageId: (json['forwarded_from_message_id'] ?? json['ForwardedFromMessageID'])?.toString(),
-      attachedContent: ((json['attached_content'] ?? json['Attachments']) as List?)
-              ?.map((e) => AttachedContentModel.fromJson(e as Map<String, dynamic>))
+      clientMessageId: (json['client_message_id'] ?? json['ClientMessageID'])
+          ?.toString(),
+      replyToMessageId:
+          (json['reply_to_message_id'] ?? json['ReplyToMessageID'])?.toString(),
+      forwardedFromMessageId:
+          (json['forwarded_from_message_id'] ?? json['ForwardedFromMessageID'])
+              ?.toString(),
+      attachedContent:
+          ((json['attached_content'] ?? json['Attachments']) as List?)
+              ?.map(
+                (e) => AttachedContentModel.fromJson(e as Map<String, dynamic>),
+              )
               .toList()
               .cast<AttachedContentModel>() ??
           const <AttachedContentModel>[],
@@ -125,9 +136,9 @@ class MessageModel {
       status: status ?? this.status,
       clientMessageId: clientMessageId ?? this.clientMessageId,
       replyToMessageId: replyToMessageId ?? this.replyToMessageId,
-      forwardedFromMessageId: forwardedFromMessageId ?? this.forwardedFromMessageId,
+      forwardedFromMessageId:
+          forwardedFromMessageId ?? this.forwardedFromMessageId,
       attachedContent: attachedContent ?? this.attachedContent,
     );
   }
 }
-

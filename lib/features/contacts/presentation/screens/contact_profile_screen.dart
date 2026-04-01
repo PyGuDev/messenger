@@ -55,7 +55,7 @@ class _ContactProfileScreenState extends State<ContactProfileScreen> {
         );
         final data = response.data;
         debugPrint('[CHAT] GET /chats/personal response: $data');
-        if (data != null && data['status'] == 'success' && data['data'] != null) {
+        if (data != null && (data['status'] == 'ok' || data['status'] == 'success') && data['data'] != null) {
           chatId = (data['data']['chat_id'] ?? data['data']['id'])?.toString();
         }
         debugPrint('[CHAT] Found existing chatId: $chatId');
@@ -86,7 +86,7 @@ class _ContactProfileScreenState extends State<ContactProfileScreen> {
         });
         final createData = createResponse.data;
         debugPrint('[CHAT] POST /chats response: $createData');
-        if (createData != null && createData['status'] == 'success' && createData['data'] != null) {
+        if (createData != null && (createData['status'] == 'ok' || createData['status'] == 'success') && createData['data'] != null) {
           chatId = (createData['data']['chat_id'] ?? createData['data']['id'] ?? createData['data']['ID'])?.toString();
         }
         debugPrint('[CHAT] Created chatId: $chatId');

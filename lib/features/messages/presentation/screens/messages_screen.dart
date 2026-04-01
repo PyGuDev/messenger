@@ -12,27 +12,42 @@ import 'package:messenger/features/messages/presentation/bloc/messages_event.dar
 import 'package:messenger/features/messages/presentation/bloc/messages_state.dart';
 import 'package:messenger/features/messages/presentation/widgets/voice_recorder_widget.dart';
 import 'package:messenger/features/messages/presentation/widgets/voice_message_bubble.dart';
+import 'package:messenger/features/messages/presentation/widgets/video_recording_overlay.dart';
+import 'package:messenger/features/messages/presentation/widgets/video_message_bubble.dart';
+import '../../../../core/network/camera_service.dart';
+import '../../../../core/di/injection_container.dart';
 import '../../data/models/message_model.dart';
 
 import 'package:messenger/shared/widgets/error_display.dart';
+
+enum RecordingMode { voice, video }
 
 class MessagesScreen extends StatefulWidget {
   final String chatId;
   final String title;
   final bool isGroup;
 
-  const MessagesScreen({super.key, required this.chatId, required this.title, this.isGroup = false});
+  const MessagesScreen({
+    super.key,
+    required this.chatId,
+    required this.title,
+    this.isGroup = false,
+  });
 
   @override
   State<MessagesScreen> createState() => _MessagesScreenState();
 }
 
-class _MessagesScreenState extends State<MessagesScreen> with WidgetsBindingObserver {
+class _MessagesScreenState extends State<MessagesScreen>
+    with WidgetsBindingObserver {
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _isSendButtonActive = false;
   bool _emojiVisible = false;
   bool _isRecording = false;
+  bool _isRecordingVideo = false;
+  RecordingMode _recordingMode = RecordingMode.voice;
+  final CameraService _cameraService = sl<CameraService>();
   MessageModel? _replyingToMessage;
   final Map<String, GlobalKey> _messageKeys = {};
   String? _highlightedMessageId;
@@ -55,7 +70,8 @@ class _MessagesScreenState extends State<MessagesScreen> with WidgetsBindingObse
     });
 
     _scrollController.addListener(() {
-      if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      if (_scrollController.position.pixels >=
+          _scrollController.position.maxScrollExtent - 200) {
         context.read<MessagesBloc>().add(LoadMoreMessages(widget.chatId));
       }
       if (_scrollController.position.pixels <= 50) {
@@ -69,6 +85,7 @@ class _MessagesScreenState extends State<MessagesScreen> with WidgetsBindingObse
     WidgetsBinding.instance.removeObserver(this);
     _textController.dispose();
     _scrollController.dispose();
+    _cameraService.dispose();
     super.dispose();
   }
 
@@ -82,12 +99,15 @@ class _MessagesScreenState extends State<MessagesScreen> with WidgetsBindingObse
   void _markAsReadIfAtBottom() {
     if (!mounted) return;
     if (!_scrollController.hasClients) return;
-    
+
     if (_scrollController.position.pixels <= 50) {
       final now = DateTime.now();
-      if (_lastReadSent == null || now.difference(_lastReadSent!).inSeconds > 2) {
+      if (_lastReadSent == null ||
+          now.difference(_lastReadSent!).inSeconds > 2) {
         _lastReadSent = now;
-        context.read<MessagesBloc>().add(MarkMessagesAsRead(chatId: widget.chatId, upTo: now));
+        context.read<MessagesBloc>().add(
+          MarkMessagesAsRead(chatId: widget.chatId, upTo: now),
+        );
       }
     }
   }
@@ -95,11 +115,13 @@ class _MessagesScreenState extends State<MessagesScreen> with WidgetsBindingObse
   void _sendMessage() {
     final text = _textController.text.trim();
     if (text.isNotEmpty) {
-      context.read<MessagesBloc>().add(SendMessage(
-        chatId: widget.chatId, 
-        text: text,
-        replyToMessageId: _replyingToMessage?.id,
-      ));
+      context.read<MessagesBloc>().add(
+        SendMessage(
+          chatId: widget.chatId,
+          text: text,
+          replyToMessageId: _replyingToMessage?.id,
+        ),
+      );
       _textController.clear();
       setState(() {
         _replyingToMessage = null;
@@ -148,27 +170,31 @@ class _MessagesScreenState extends State<MessagesScreen> with WidgetsBindingObse
           // Estimate offset based on average item height
           final estimatedOffset = index * 80.0;
           final maxExtent = _scrollController.position.maxScrollExtent;
-          final target = estimatedOffset > maxExtent ? maxExtent : estimatedOffset;
-          
-          _scrollController.animateTo(
-            target,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-          ).then((_) {
-            // After rough scroll, the item might be built. Try ensuring visibility exactly.
-            Future.delayed(const Duration(milliseconds: 50), () {
-              final newKey = _messageKeys[messageId];
-              if (newKey != null && newKey.currentContext != null) {
-                Scrollable.ensureVisible(
-                  newKey.currentContext!,
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut,
-                  alignment: 0.5,
-                );
-              }
-              _highlightMessage(messageId);
-            });
-          });
+          final target = estimatedOffset > maxExtent
+              ? maxExtent
+              : estimatedOffset;
+
+          _scrollController
+              .animateTo(
+                target,
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+              )
+              .then((_) {
+                // After rough scroll, the item might be built. Try ensuring visibility exactly.
+                Future.delayed(const Duration(milliseconds: 50), () {
+                  final newKey = _messageKeys[messageId];
+                  if (newKey != null && newKey.currentContext != null) {
+                    Scrollable.ensureVisible(
+                      newKey.currentContext!,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                      alignment: 0.5,
+                    );
+                  }
+                  _highlightMessage(messageId);
+                });
+              });
         }
       }
     }
@@ -187,6 +213,44 @@ class _MessagesScreenState extends State<MessagesScreen> with WidgetsBindingObse
     });
   }
 
+  Future<void> _startVideoRecording() async {
+    try {
+      await _cameraService.initialize();
+      await _cameraService.startRecording();
+      setState(() {
+        _isRecordingVideo = true;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Camera error: ${e.toString()}')),
+        );
+      }
+    }
+  }
+
+  Future<void> _stopVideoRecording(bool send) async {
+    final file = await _cameraService.stopRecording();
+    setState(() {
+      _isRecordingVideo = false;
+    });
+    if (send && file != null) {
+      // ignore: use_build_context_synchronously
+      context.read<MessagesBloc>().add(
+        SendVideoMessage(
+          chatId: widget.chatId,
+          filePath: file.path,
+          duration: const Duration(seconds: 0),
+          replyToMessageId: _replyingToMessage?.id,
+        ),
+      );
+      setState(() {
+        _replyingToMessage = null;
+      });
+    }
+    _cameraService.dispose();
+  }
+
   String _formatTime(DateTime time) {
     return DateFormat.Hm().format(time); // HH:mm
   }
@@ -194,49 +258,87 @@ class _MessagesScreenState extends State<MessagesScreen> with WidgetsBindingObse
   Widget _buildMessageStatus(MessageStatus status) {
     switch (status) {
       case MessageStatus.sending:
-        return const Icon(Icons.access_time, size: 12, color: AppColors.textOnAccent);
+        return const Icon(
+          Icons.access_time,
+          size: 12,
+          color: AppColors.textOnAccent,
+        );
       case MessageStatus.sent:
         return const Icon(Icons.check, size: 12, color: AppColors.textOnAccent);
       case MessageStatus.delivered:
-        return const Icon(Icons.done_all, size: 12, color: AppColors.textOnAccent);
+        return const Icon(
+          Icons.done_all,
+          size: 12,
+          color: AppColors.textOnAccent,
+        );
       case MessageStatus.read:
         return const Icon(Icons.done_all, size: 12, color: Colors.blueAccent);
       case MessageStatus.failed:
-        return const Icon(Icons.error_outline, size: 12, color: Colors.redAccent);
+        return const Icon(
+          Icons.error_outline,
+          size: 12,
+          color: Colors.redAccent,
+        );
     }
   }
 
-  Widget _buildMessageBubble(MessageModel message, String currentUserId, Map<String, String> userNames, MessageModel? repliedMessage, GlobalKey? key) {
-    final isMine = message.authorId.trim() == currentUserId.trim() && currentUserId.isNotEmpty;
-    
+  Widget _buildMessageBubble(
+    MessageModel message,
+    String currentUserId,
+    Map<String, String> userNames,
+    MessageModel? repliedMessage,
+    GlobalKey? key,
+  ) {
+    final isMine =
+        message.authorId.trim() == currentUserId.trim() &&
+        currentUserId.isNotEmpty;
+
     if (foundation.kDebugMode) {
-      foundation.debugPrint('Message ID: ${message.id}, Author: ${message.authorId}, CurrentUser: $currentUserId, isMine: $isMine');
+      foundation.debugPrint(
+        'Message ID: ${message.id}, Author: ${message.authorId}, CurrentUser: $currentUserId, isMine: $isMine',
+      );
     }
 
     final authorName = userNames[message.authorId] ?? 'User';
+
+    final hasVideo = message.attachedContent.any(
+      (c) => c.typeContent == 'video',
+    );
 
     final bubble = Align(
       key: key,
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+        padding: hasVideo
+            ? EdgeInsets.zero
+            : const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
         decoration: BoxDecoration(
-          color: _highlightedMessageId == message.id 
-            ? AppColors.bgHighlight 
-            : (isMine ? AppColors.bgMessageOut : AppColors.bgMessageIn),
+          color: _highlightedMessageId == message.id
+              ? AppColors.bgHighlight
+              : (hasVideo
+                    ? Colors.transparent
+                    : (isMine
+                          ? AppColors.bgMessageOut
+                          : AppColors.bgMessageIn)),
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(16),
             topRight: const Radius.circular(16),
-            bottomLeft: isMine ? const Radius.circular(16) : const Radius.circular(4),
-            bottomRight: isMine ? const Radius.circular(4) : const Radius.circular(16),
+            bottomLeft: isMine
+                ? const Radius.circular(16)
+                : const Radius.circular(4),
+            bottomRight: isMine
+                ? const Radius.circular(4)
+                : const Radius.circular(16),
           ),
         ),
         constraints: BoxConstraints(
           maxWidth: MediaQuery.of(context).size.width * 0.75,
         ),
         child: Column(
-          crossAxisAlignment: isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          crossAxisAlignment: isMine
+              ? CrossAxisAlignment.end
+              : CrossAxisAlignment.start,
           children: [
             if (!isMine && widget.isGroup) ...[
               Text(
@@ -254,7 +356,10 @@ class _MessagesScreenState extends State<MessagesScreen> with WidgetsBindingObse
                 onTap: () => _scrollToMessage(repliedMessage.id),
                 child: Container(
                   margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0x22FFFFFF),
                     borderRadius: BorderRadius.circular(8),
@@ -266,7 +371,9 @@ class _MessagesScreenState extends State<MessagesScreen> with WidgetsBindingObse
                         Container(
                           width: 3,
                           decoration: BoxDecoration(
-                            color: isMine ? AppColors.accentBlueLight : AppColors.accentBlue,
+                            color: isMine
+                                ? AppColors.accentBlueLight
+                                : AppColors.accentBlue,
                             borderRadius: BorderRadius.circular(2),
                           ),
                         ),
@@ -279,7 +386,9 @@ class _MessagesScreenState extends State<MessagesScreen> with WidgetsBindingObse
                               Text(
                                 userNames[repliedMessage.authorId] ?? 'User',
                                 style: TextStyle(
-                                  color: isMine ? AppColors.accentBlueLight : AppColors.accentBlue,
+                                  color: isMine
+                                      ? AppColors.accentBlueLight
+                                      : AppColors.accentBlue,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 13,
                                 ),
@@ -290,7 +399,11 @@ class _MessagesScreenState extends State<MessagesScreen> with WidgetsBindingObse
                               Text(
                                 repliedMessage.text,
                                 style: TextStyle(
-                                  color: isMine ? AppColors.textOnAccent.withValues(alpha: 0.66) : AppColors.textPrimary,
+                                  color: isMine
+                                      ? AppColors.textOnAccent.withValues(
+                                          alpha: 0.66,
+                                        )
+                                      : AppColors.textPrimary,
                                   fontSize: 13,
                                 ),
                                 maxLines: 1,
@@ -305,16 +418,31 @@ class _MessagesScreenState extends State<MessagesScreen> with WidgetsBindingObse
                 ),
               ),
             ],
-            if (message.attachedContent.any((c) => c.typeContent == 'voice')) ...[
+            if (message.attachedContent.any(
+              (c) => c.typeContent == 'voice',
+            )) ...[
               VoiceMessageBubble(
-                accessKey: message.attachedContent.firstWhere((c) => c.typeContent == 'voice').accessKey,
+                accessKey: message.attachedContent
+                    .firstWhere((c) => c.typeContent == 'voice')
+                    .accessKey,
+                isMe: isMine,
+              ),
+            ] else if (message.attachedContent.any(
+              (c) => c.typeContent == 'video',
+            )) ...[
+              VideoMessageBubble(
+                accessKey: message.attachedContent
+                    .firstWhere((c) => c.typeContent == 'video')
+                    .accessKey,
                 isMe: isMine,
               ),
             ] else
               Text(
                 message.text,
                 style: TextStyle(
-                  color: isMine ? AppColors.textOnAccent : AppColors.textPrimary,
+                  color: isMine
+                      ? AppColors.textOnAccent
+                      : AppColors.textPrimary,
                   fontSize: 15,
                 ),
               ),
@@ -325,7 +453,9 @@ class _MessagesScreenState extends State<MessagesScreen> with WidgetsBindingObse
                 Text(
                   _formatTime(message.createdAt),
                   style: TextStyle(
-                    color: isMine ? AppColors.textOnAccent.withValues(alpha: 0.7) : AppColors.textSecondary,
+                    color: isMine
+                        ? AppColors.textOnAccent.withValues(alpha: 0.7)
+                        : AppColors.textSecondary,
                     fontSize: 10,
                   ),
                 ),
@@ -334,15 +464,27 @@ class _MessagesScreenState extends State<MessagesScreen> with WidgetsBindingObse
                   if (message.status == MessageStatus.failed)
                     GestureDetector(
                       onTap: () {
-                        context.read<MessagesBloc>().add(ResendMessage(
-                          chatId: widget.chatId,
-                          clientMessageId: message.clientMessageId ?? '',
-                        ));
+                        context.read<MessagesBloc>().add(
+                          ResendMessage(
+                            chatId: widget.chatId,
+                            clientMessageId: message.clientMessageId ?? '',
+                          ),
+                        );
                       },
                       child: const Row(
                         children: [
-                          Icon(Icons.refresh, size: 12, color: Colors.redAccent),
-                          Text('Retry', style: TextStyle(color: Colors.redAccent, fontSize: 10)),
+                          Icon(
+                            Icons.refresh,
+                            size: 12,
+                            color: Colors.redAccent,
+                          ),
+                          Text(
+                            'Retry',
+                            style: TextStyle(
+                              color: Colors.redAccent,
+                              fontSize: 10,
+                            ),
+                          ),
                         ],
                       ),
                     )
@@ -359,9 +501,7 @@ class _MessagesScreenState extends State<MessagesScreen> with WidgetsBindingObse
     return Dismissible(
       key: Key('msg_${message.clientMessageId ?? message.id}'),
       direction: DismissDirection.endToStart,
-      dismissThresholds: const {
-        DismissDirection.endToStart: 0.1,
-      },
+      dismissThresholds: const {DismissDirection.endToStart: 0.1},
       confirmDismiss: (direction) async {
         _initiateReply(message);
         return false;
@@ -400,7 +540,10 @@ class _MessagesScreenState extends State<MessagesScreen> with WidgetsBindingObse
               child: Center(
                 child: Text(
                   widget.title.isNotEmpty ? widget.title[0].toUpperCase() : '?',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ),
@@ -433,11 +576,19 @@ class _MessagesScreenState extends State<MessagesScreen> with WidgetsBindingObse
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.phone, color: AppColors.textSecondary, size: 22),
+            icon: const Icon(
+              Icons.phone,
+              color: AppColors.textSecondary,
+              size: 22,
+            ),
             onPressed: () {},
           ),
           IconButton(
-            icon: const Icon(Icons.more_vert, color: AppColors.textSecondary, size: 22),
+            icon: const Icon(
+              Icons.more_vert,
+              color: AppColors.textSecondary,
+              size: 22,
+            ),
             onPressed: () {},
           ),
           const SizedBox(width: 4),
@@ -449,59 +600,95 @@ class _MessagesScreenState extends State<MessagesScreen> with WidgetsBindingObse
           child: Container(color: AppColors.borderDefault, height: 1),
         ),
       ),
-      body: Column(
+      body: Stack(
         children: [
-          Expanded(
-            child: BlocConsumer<MessagesBloc, MessagesState>(
-              listener: (context, state) {
-                if (state is MessagesLoaded) {
-                  if (_lastReadSent == null) {
-                    _lastReadSent = DateTime.now();
-                    context.read<MessagesBloc>().add(MarkMessagesAsRead(chatId: widget.chatId, upTo: _lastReadSent!));
-                  } else {
-                    _markAsReadIfAtBottom();
-                  }
-                }
-              },
-              builder: (context, state) {
-                if (state is MessagesLoading) {
-                  return const Center(child: CircularProgressIndicator());
-                } else if (state is MessagesLoaded) {
-                  return ListView.builder(
-                    controller: _scrollController,
-                    reverse: true,
-                    padding: const EdgeInsets.all(16),
-                    itemCount: state.messages.length + (state.hasReachedMax ? 0 : 1),
-                    itemBuilder: (context, index) {
-                      if (index >= state.messages.length) {
-                        return const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 16),
-                          child: Center(child: CircularProgressIndicator()),
+          Column(
+            children: [
+              Expanded(
+                child: BlocConsumer<MessagesBloc, MessagesState>(
+                  listener: (context, state) {
+                    if (state is MessagesLoaded) {
+                      if (_lastReadSent == null) {
+                        _lastReadSent = DateTime.now();
+                        context.read<MessagesBloc>().add(
+                          MarkMessagesAsRead(
+                            chatId: widget.chatId,
+                            upTo: _lastReadSent!,
+                          ),
                         );
+                      } else {
+                        _markAsReadIfAtBottom();
                       }
-                      final message = state.messages[index];
-                      final repliedMessage = message.replyToMessageId != null
-                          ? state.messages.cast<MessageModel?>().firstWhere(
-                              (m) => m?.id == message.replyToMessageId,
-                              orElse: () => null,
-                            )
-                          : null;
-                      final key = _messageKeys.putIfAbsent(message.id, () => GlobalKey());
-                      return _buildMessageBubble(message, state.currentUserId, state.userNames, repliedMessage, key);
-                    },
-                  );
-                } else if (state is MessagesError) {
-                  return ErrorDisplay(
-                    message: state.message,
-                    onRetry: () => context.read<MessagesBloc>().add(LoadMessages(widget.chatId)),
-                  );
-                }
-                return const SizedBox.shrink();
-              },
-            ),
+                    }
+                  },
+                  builder: (context, state) {
+                    if (state is MessagesLoading) {
+                      return const Center(child: CircularProgressIndicator());
+                    } else if (state is MessagesLoaded) {
+                      return ListView.builder(
+                        controller: _scrollController,
+                        reverse: true,
+                        padding: const EdgeInsets.all(16),
+                        itemCount:
+                            state.messages.length +
+                            (state.hasReachedMax ? 0 : 1),
+                        itemBuilder: (context, index) {
+                          if (index >= state.messages.length) {
+                            return const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 16),
+                              child: Center(child: CircularProgressIndicator()),
+                            );
+                          }
+                          final message = state.messages[index];
+                          final repliedMessage =
+                              message.replyToMessageId != null
+                              ? state.messages.cast<MessageModel?>().firstWhere(
+                                  (m) => m?.id == message.replyToMessageId,
+                                  orElse: () => null,
+                                )
+                              : null;
+                          final key = _messageKeys.putIfAbsent(
+                            message.id,
+                            () => GlobalKey(),
+                          );
+                          return _buildMessageBubble(
+                            message,
+                            state.currentUserId,
+                            state.userNames,
+                            repliedMessage,
+                            key,
+                          );
+                        },
+                      );
+                    } else if (state is MessagesError) {
+                      return ErrorDisplay(
+                        message: state.message,
+                        onRetry: () => context.read<MessagesBloc>().add(
+                          LoadMessages(widget.chatId),
+                        ),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+              ),
+              _buildMessageInput(),
+              _buildEmojiPicker(),
+            ],
           ),
-          _buildMessageInput(),
-          _buildEmojiPicker(),
+          if (_isRecordingVideo)
+            Positioned.fill(
+              child: VideoRecordingOverlay(
+                onCancel: () => _stopVideoRecording(false),
+                onSend: () => _stopVideoRecording(true),
+                onSwitchCamera: () async {
+                  if (_cameraService.isSwitching) return;
+                  setState(() {}); // Show loading
+                  await _cameraService.switchCamera();
+                  if (mounted) setState(() {}); // Show new preview
+                },
+              ),
+            ),
         ],
       ),
     );
@@ -511,12 +698,14 @@ class _MessagesScreenState extends State<MessagesScreen> with WidgetsBindingObse
     if (_isRecording) {
       return VoiceRecorderWidget(
         onSend: (path, duration) {
-          context.read<MessagesBloc>().add(SendVoiceMessage(
-            chatId: widget.chatId,
-            filePath: path,
-            duration: duration,
-            replyToMessageId: _replyingToMessage?.id,
-          ));
+          context.read<MessagesBloc>().add(
+            SendVoiceMessage(
+              chatId: widget.chatId,
+              filePath: path,
+              duration: duration,
+              replyToMessageId: _replyingToMessage?.id,
+            ),
+          );
           setState(() {
             _isRecording = false;
             _replyingToMessage = null;
@@ -538,91 +727,124 @@ class _MessagesScreenState extends State<MessagesScreen> with WidgetsBindingObse
             color: AppColors.bgPrimary,
             border: Border(top: BorderSide(color: AppColors.borderDefault)),
           ),
-      child: SafeArea(
-        bottom: !_emojiVisible,
-        child: Row(
-          children: [
-            const Icon(Icons.attach_file, color: AppColors.textTertiary, size: 24),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Container(
-                height: 44,
-                decoration: BoxDecoration(
-                  color: AppColors.bgInput,
-                  borderRadius: BorderRadius.circular(22),
+          child: SafeArea(
+            bottom: !_emojiVisible,
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.attach_file,
+                  color: AppColors.textTertiary,
+                  size: 24,
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  children: [
-                    GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _emojiVisible = !_emojiVisible;
-                        });
-                        if (_emojiVisible) {
-                          FocusScope.of(context).unfocus();
-                        }
-                      },
-                      child: Icon(
-                        _emojiVisible ? Icons.keyboard : Icons.sentiment_satisfied_alt,
-                        color: _emojiVisible ? AppColors.accentBlue : AppColors.textTertiary,
-                        size: 22,
-                      ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Container(
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: AppColors.bgInput,
+                      borderRadius: BorderRadius.circular(22),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextField(
-                        controller: _textController,
-                        onSubmitted: (_) => _sendMessage(),
-                        decoration: const InputDecoration(
-                          hintText: 'Message...',
-                          hintStyle: TextStyle(
-                            color: AppColors.textTertiary,
-                            fontFamily: 'Inter',
-                            fontSize: 15,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      children: [
+                        GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _emojiVisible = !_emojiVisible;
+                            });
+                            if (_emojiVisible) {
+                              FocusScope.of(context).unfocus();
+                            }
+                          },
+                          child: Icon(
+                            _emojiVisible
+                                ? Icons.keyboard
+                                : Icons.sentiment_satisfied_alt,
+                            color: _emojiVisible
+                                ? AppColors.accentBlue
+                                : AppColors.textTertiary,
+                            size: 22,
                           ),
-                          border: InputBorder.none,
-                          isDense: true,
-                          contentPadding: EdgeInsets.zero,
                         ),
-                        style: const TextStyle(
-                          color: AppColors.textPrimary,
-                          fontFamily: 'Inter',
-                          fontSize: 15,
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextField(
+                            controller: _textController,
+                            onSubmitted: (_) => _sendMessage(),
+                            decoration: const InputDecoration(
+                              hintText: 'Message...',
+                              hintStyle: TextStyle(
+                                color: AppColors.textTertiary,
+                                fontFamily: 'Inter',
+                                fontSize: 15,
+                              ),
+                              border: InputBorder.none,
+                              isDense: true,
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                            style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontFamily: 'Inter',
+                              fontSize: 15,
+                            ),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            GestureDetector(
-              onTap: _isSendButtonActive ? _sendMessage : () {
-                setState(() => _isRecording = true);
-              },
-              child: Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: _isSendButtonActive ? AppColors.accentBlue : AppColors.borderDefault,
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Icon(
-                    _isSendButtonActive ? Icons.send : Icons.mic,
-                    color: _isSendButtonActive ? Colors.white : AppColors.textTertiary,
-                    size: 20,
                   ),
                 ),
-              ),
+                const SizedBox(width: 10),
+                GestureDetector(
+                  onTap: _isSendButtonActive
+                      ? _sendMessage
+                      : () {
+                          setState(() {
+                            _recordingMode =
+                                _recordingMode == RecordingMode.voice
+                                ? RecordingMode.video
+                                : RecordingMode.voice;
+                          });
+                        },
+                  onLongPress: _isSendButtonActive
+                      ? null
+                      : () {
+                          if (_recordingMode == RecordingMode.voice) {
+                            setState(() => _isRecording = true);
+                          } else {
+                            _startVideoRecording();
+                          }
+                        },
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: _isSendButtonActive
+                          ? AppColors.accentBlue
+                          : AppColors.borderDefault,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Icon(
+                        _isSendButtonActive
+                            ? Icons.send
+                            : (_recordingMode == RecordingMode.voice
+                                  ? Icons.mic
+                                  : Icons.videocam),
+                        color: _isSendButtonActive
+                            ? Colors.white
+                            : AppColors.textTertiary,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
-      ),
-    ),
-  ]);
-}
+      ],
+    );
+  }
 
   Widget _buildEmojiPicker() {
     return Offstage(
@@ -632,47 +854,47 @@ class _MessagesScreenState extends State<MessagesScreen> with WidgetsBindingObse
         child: EmojiPicker(
           textEditingController: _textController,
           onEmojiSelected: (Category? category, Emoji emoji) {
-          setState(() {
-            _isSendButtonActive = _textController.text.trim().isNotEmpty;
-          });
-        },
-        config: Config(
-          height: 256,
-          checkPlatformCompatibility: false,
-          emojiTextStyle: GoogleFonts.notoColorEmoji(
-            fontSize: 28,
-          ),
-          emojiViewConfig: EmojiViewConfig(
-            emojiSizeMax: 28 *
-                (foundation.defaultTargetPlatform == TargetPlatform.iOS
-                    ? 1.2
-                    : 1.0),
-            columns: 7,
-            backgroundColor: AppColors.bgPrimary,
-            noRecents: const Text(
-              'Нет недавних эмодзи',
-              style: TextStyle(fontSize: 16, color: AppColors.textTertiary),
-              textAlign: TextAlign.center,
+            setState(() {
+              _isSendButtonActive = _textController.text.trim().isNotEmpty;
+            });
+          },
+          config: Config(
+            height: 256,
+            checkPlatformCompatibility: false,
+            emojiTextStyle: GoogleFonts.notoColorEmoji(fontSize: 28),
+            emojiViewConfig: EmojiViewConfig(
+              emojiSizeMax:
+                  28 *
+                  (foundation.defaultTargetPlatform == TargetPlatform.iOS
+                      ? 1.2
+                      : 1.0),
+              columns: 7,
+              backgroundColor: AppColors.bgPrimary,
+              noRecents: const Text(
+                'Нет недавних эмодзи',
+                style: TextStyle(fontSize: 16, color: AppColors.textTertiary),
+                textAlign: TextAlign.center,
+              ),
             ),
-          ),
-          categoryViewConfig: CategoryViewConfig(
-            backgroundColor: AppColors.bgPrimary,
-            indicatorColor: AppColors.accentBlue,
-            iconColorSelected: AppColors.accentBlue,
-            iconColor: AppColors.textTertiary,
-          ),
-          bottomActionBarConfig: const BottomActionBarConfig(
-            showBackspaceButton: true,
-            showSearchViewButton: true,
-          ),
-          searchViewConfig: SearchViewConfig(
-            backgroundColor: AppColors.bgPrimary,
-            buttonIconColor: AppColors.textTertiary,
-            hintText: 'Поиск эмодзи...',
+            categoryViewConfig: CategoryViewConfig(
+              backgroundColor: AppColors.bgPrimary,
+              indicatorColor: AppColors.accentBlue,
+              iconColorSelected: AppColors.accentBlue,
+              iconColor: AppColors.textTertiary,
+            ),
+            bottomActionBarConfig: const BottomActionBarConfig(
+              showBackspaceButton: true,
+              showSearchViewButton: true,
+            ),
+            searchViewConfig: SearchViewConfig(
+              backgroundColor: AppColors.bgPrimary,
+              buttonIconColor: AppColors.textTertiary,
+              hintText: 'Поиск эмодзи...',
+            ),
           ),
         ),
       ),
-    ));
+    );
   }
 
   Widget _buildReplyPreview() {
@@ -708,12 +930,19 @@ class _MessagesScreenState extends State<MessagesScreen> with WidgetsBindingObse
                       children: [
                         Text(
                           authorName,
-                          style: const TextStyle(color: AppColors.accentBlue, fontWeight: FontWeight.w600, fontSize: 13),
+                          style: const TextStyle(
+                            color: AppColors.accentBlue,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           _replyingToMessage!.text,
-                          style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 13,
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -725,7 +954,11 @@ class _MessagesScreenState extends State<MessagesScreen> with WidgetsBindingObse
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.close, color: AppColors.textTertiary, size: 20),
+            icon: const Icon(
+              Icons.close,
+              color: AppColors.textTertiary,
+              size: 20,
+            ),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
             onPressed: _cancelReply,

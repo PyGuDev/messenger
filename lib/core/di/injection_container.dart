@@ -14,10 +14,10 @@ import '../network/websocket_service.dart';
 import '../network/network_info.dart';
 import '../network/file_service.dart';
 import '../network/voice_recorder_service.dart';
+import '../network/camera_service.dart';
 import '../../features/auth/presentation/bloc/auth_event.dart';
 
 final sl = GetIt.instance; // sl stands for Service Locator
-
 
 Future<void> init() async {
   // External
@@ -25,12 +25,8 @@ Future<void> init() async {
   sl.registerLazySingleton(() => Connectivity());
 
   // Core
-  sl.registerLazySingleton<TokenStorage>(
-    () => TokenStorageImpl(sl()),
-  );
-  sl.registerLazySingleton<NetworkInfo>(
-    () => NetworkInfoImpl(sl()),
-  );
+  sl.registerLazySingleton<TokenStorage>(() => TokenStorageImpl(sl()));
+  sl.registerLazySingleton<NetworkInfo>(() => NetworkInfoImpl(sl()));
 
   // Network
   sl.registerLazySingleton<Dio>(
@@ -76,14 +72,11 @@ Future<void> init() async {
   sl.registerLazySingleton<FileService>(
     () => FileService(sl<Dio>(instanceName: 'fileDio')),
   );
-  sl.registerLazySingleton<VoiceRecorderService>(
-    () => VoiceRecorderService(),
-  );
+  sl.registerLazySingleton<VoiceRecorderService>(() => VoiceRecorderService());
+  sl.registerLazySingleton<CameraService>(() => CameraService());
 
   // Bloc
-  sl.registerFactory<NetworkBloc>(
-    () => NetworkBloc(sl()),
-  );
+  sl.registerFactory<NetworkBloc>(() => NetworkBloc(sl()));
   sl.registerLazySingleton<AuthBloc>(
     () => AuthBloc(sl(instanceName: 'authDio'), sl(), sl()),
   );
@@ -91,13 +84,20 @@ Future<void> init() async {
     () => ProfileBloc(sl(instanceName: 'authDio')),
   );
   sl.registerFactory<ChatsBloc>(
-    () => ChatsBloc(sl(instanceName: 'chatDio'), sl(), sl<UserService>(), sl<TokenStorage>()),
+    () => ChatsBloc(
+      sl(instanceName: 'chatDio'),
+      sl(),
+      sl<UserService>(),
+      sl<TokenStorage>(),
+    ),
   );
   sl.registerFactory<MessagesBloc>(
-    () => MessagesBloc(sl(instanceName: 'chatDio'), sl(), sl(), sl<UserService>(), sl<FileService>()),
+    () => MessagesBloc(
+      sl(instanceName: 'chatDio'),
+      sl(),
+      sl(),
+      sl<UserService>(),
+      sl<FileService>(),
+    ),
   );
 }
-
-
-
-

@@ -1,5 +1,5 @@
 # Uncomment this line to define a global platform for your project
-platform :ios, '13.0'
+platform :ios, '14.0'
 
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
@@ -45,6 +45,12 @@ post_install do |installer|
         '$(inherited)',
         'PERMISSION_CONTACTS=1'
       ]
+      
+      # Force $(inherited) for HEADER_SEARCH_PATHS to ensure Pods are found
+      config.build_settings['HEADER_SEARCH_PATHS'] ||= '$(inherited)'
+      unless config.build_settings['HEADER_SEARCH_PATHS'].include?('$(inherited)')
+        config.build_settings['HEADER_SEARCH_PATHS'] = "$(inherited) #{config.build_settings['HEADER_SEARCH_PATHS']}"
+      end
     end
   end
 end

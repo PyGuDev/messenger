@@ -68,8 +68,10 @@
 	</array>
 	<key>NSContactsUsageDescription</key>
 	<string>This app requires contacts access to find your friends.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>This app requires camera access to record video messages.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>This app requires microphone access to record voice messages.</string>
+	<string>This app requires microphone access to record voice and video messages.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>

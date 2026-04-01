@@ -34,6 +34,7 @@ class MessagesBloc extends Bloc<MessagesEvent, MessagesState> {
     on<EditMessage>(_onEditMessage);
     on<DeleteMessage>(_onDeleteMessage);
     on<ForwardMessages>(_onForwardMessages);
+    on<SendVideoMessage>(_onSendVideoMessage);
 
     _wsSubscription = _wsService.events.listen((event) {
       add(OnWebSocketEvent(event));
@@ -520,8 +521,97 @@ class MessagesBloc extends Bloc<MessagesEvent, MessagesState> {
         final updatedMessages = List<MessageModel>.from(currentState.messages)..insertAll(0, newMessages);
         emit(currentState.copyWith(messages: updatedMessages));
       } catch (e) {
-        // Handle error
+      }
+    }
+  }
+
+  Future<void> _onSendVideoMessage(
+    SendVideoMessage event,
+    Emitter<MessagesState> emit,
+  ) async {
+    if (state is! MessagesLoaded) return;
+    final currentState = state as MessagesLoaded;
+
+    final clientMessageId = const Uuid().v4();
+    final now = DateTime.now();
+
+    // 1. Create optimistic message
+    final tempMessage = MessageModel(
+      id: clientMessageId,
+      chatId: event.chatId,
+      authorId: _currentUserId ?? '',
+      text: '',
+      createdAt: now,
+      updatedAt: now,
+      status: MessageStatus.sending,
+      clientMessageId: clientMessageId,
+      attachedContent: [
+        AttachedContentModel(
+          id: '',
+          fileName: 'video.mp4',
+          fileSize: 0,
+          accessKey: '',
+          typeContent: 'video',
+          mimeType: 'video/mp4',
+        ),
+      ],
+    );
+
+    final updatedMessages = [tempMessage, ...currentState.messages];
+    emit(currentState.copyWith(messages: updatedMessages));
+
+    try {
+      // 2. Upload to File Service
+      final file = File(event.filePath);
+      final fileSize = await file.length();
+      final fileName = event.filePath.split('/').last;
+
+      final uploadRes = await _fileService.uploadFile(
+        event.filePath,
+        fileName,
+      );
+
+      // 3. Send to Chat API
+      final response = await _dio.post(
+        '/chats/${event.chatId}/messages',
+        data: {
+          'body': '',
+          'client_message_id': clientMessageId,
+          'reply_to_message_id': event.replyToMessageId,
+          'attached_content': [
+            {
+              'type_content': 'video',
+              'access_key': uploadRes.accessKey,
+              'file_name': fileName,
+              'file_size': fileSize,
+              'mime_type': 'video/mp4',
+            }
+          ],
+        },
+      );
+
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        final serverMessage = MessageModel.fromJson(response.data['data']);
+        if (state is MessagesLoaded) {
+          final currentStateNow = state as MessagesLoaded;
+          final finalMessages = currentStateNow.messages.map((m) {
+            return m.clientMessageId == clientMessageId ? serverMessage : m;
+          }).toList();
+          emit(currentStateNow.copyWith(messages: finalMessages));
+        }
+      }
+    } catch (e) {
+      if (state is MessagesLoaded) {
+        final currentStateNow = state as MessagesLoaded;
+        final errorMessages = currentStateNow.messages.map((m) {
+          if (m.clientMessageId == clientMessageId) {
+            return m.copyWith(status: MessageStatus.failed);
+          }
+          return m;
+        }).toList();
+        emit(currentStateNow.copyWith(messages: errorMessages));
       }
     }
   }
 }
+

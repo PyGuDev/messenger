@@ -112,3 +112,20 @@ class ForwardMessages extends MessagesEvent {
   @override
   List<Object?> get props => [chatId, messageIds];
 }
+
+class SendVideoMessage extends MessagesEvent {
+  final String chatId;
+  final String filePath;
+  final Duration duration;
+  final String? replyToMessageId;
+
+  const SendVideoMessage({
+    required this.chatId,
+    required this.filePath,
+    required this.duration,
+    this.replyToMessageId,
+  });
+
+  @override
+  List<Object?> get props => [chatId, filePath, duration, replyToMessageId];
+}

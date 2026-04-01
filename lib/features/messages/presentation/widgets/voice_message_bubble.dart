@@ -13,13 +13,11 @@ import '../../../../core/security/token_storage.dart';
 class VoiceMessageBubble extends StatefulWidget {
   final String accessKey;
   final bool isMe;
-  final FileService fileService; // Added this to pass it or just use sl in state
+  final FileService
+  fileService; // Added this to pass it or just use sl in state
 
-  VoiceMessageBubble({
-    super.key,
-    required this.accessKey,
-    required this.isMe,
-  }) : fileService = sl<FileService>();
+  VoiceMessageBubble({super.key, required this.accessKey, required this.isMe})
+    : fileService = sl<FileService>();
 
   @override
   State<VoiceMessageBubble> createState() => _VoiceMessageBubbleState();
@@ -43,38 +41,42 @@ class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
   Future<void> _initPlayer() async {
     try {
       if (widget.accessKey.isEmpty) {
-        foundation.debugPrint('VoiceMessageBubble: Warning: accessKey is empty!');
+        foundation.debugPrint(
+          'VoiceMessageBubble: Warning: accessKey is empty!',
+        );
         return;
       }
 
       final url = widget.fileService.getDownloadUrl(widget.accessKey);
       foundation.debugPrint('VoiceMessageBubble: Loading audio from URL: $url');
-      
+
       final tempDir = await getTemporaryDirectory();
       final localFile = File('${tempDir.path}/voice_${widget.accessKey}.m4a');
 
       if (!await localFile.exists()) {
-        foundation.debugPrint('VoiceMessageBubble: Downloading to cache: ${localFile.path}');
+        foundation.debugPrint(
+          'VoiceMessageBubble: Downloading to cache: ${localFile.path}',
+        );
         final token = await _tokenStorage.getAccessToken();
         final dio = Dio();
-        
+
         await dio.download(
           url,
           localFile.path,
-          options: Options(
-            headers: {'Authorization': 'Bearer $token'},
-          ),
+          options: Options(headers: {'Authorization': 'Bearer $token'}),
         );
       } else {
-        foundation.debugPrint('VoiceMessageBubble: Playing from cache: ${localFile.path}');
+        foundation.debugPrint(
+          'VoiceMessageBubble: Playing from cache: ${localFile.path}',
+        );
       }
-      
+
       await _player.setAudioSource(AudioSource.uri(Uri.file(localFile.path)));
-      
+
       _durationSubscription = _player.durationStream.listen((d) {
         if (mounted) setState(() => _duration = d ?? Duration.zero);
       });
-      
+
       _positionSubscription = _player.positionStream.listen((p) {
         if (mounted) setState(() => _position = p);
       });
@@ -113,7 +115,9 @@ class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
   @override
   Widget build(BuildContext context) {
     final color = widget.isMe ? AppColors.textOnAccent : AppColors.textPrimary;
-    final secondaryColor = widget.isMe ? AppColors.textOnAccent.withValues(alpha: 0.7) : AppColors.textTertiary;
+    final secondaryColor = widget.isMe
+        ? AppColors.textOnAccent.withValues(alpha: 0.7)
+        : AppColors.textTertiary;
 
     return Container(
       width: 220,
@@ -143,14 +147,21 @@ class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
                 SliderTheme(
                   data: SliderTheme.of(context).copyWith(
                     trackHeight: 2,
-                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                    overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
+                    thumbShape: const RoundSliderThumbShape(
+                      enabledThumbRadius: 6,
+                    ),
+                    overlayShape: const RoundSliderOverlayShape(
+                      overlayRadius: 10,
+                    ),
                     activeTrackColor: color,
                     inactiveTrackColor: color.withValues(alpha: 0.3),
                     thumbColor: color,
                   ),
                   child: Slider(
-                    value: _position.inMilliseconds.toDouble().clamp(0, _duration.inMilliseconds.toDouble()),
+                    value: _position.inMilliseconds.toDouble().clamp(
+                      0,
+                      _duration.inMilliseconds.toDouble(),
+                    ),
                     max: _duration.inMilliseconds.toDouble(),
                     onChanged: (val) {
                       _player.seek(Duration(milliseconds: val.toInt()));
@@ -161,10 +172,7 @@ class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
                   padding: const EdgeInsets.only(left: 12),
                   child: Text(
                     _formatDuration(_duration - _position),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: secondaryColor,
-                    ),
+                    style: TextStyle(fontSize: 12, color: secondaryColor),
                   ),
                 ),
               ],
