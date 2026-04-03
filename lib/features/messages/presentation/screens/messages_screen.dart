@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' as foundation;
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
@@ -51,6 +52,10 @@ class _MessagesScreenState extends State<MessagesScreen>
   MessageModel? _replyingToMessage;
   final Map<String, GlobalKey> _messageKeys = {};
   String? _highlightedMessageId;
+  
+  Timer? _recordTimer;
+  bool _recordTimerFired = false;
+  bool _isVideoRecordingCanceled = false;
 
   DateTime? _lastReadSent;
 
@@ -82,6 +87,7 @@ class _MessagesScreenState extends State<MessagesScreen>
 
   @override
   void dispose() {
+    _recordTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _textController.dispose();
     _scrollController.dispose();
@@ -214,14 +220,22 @@ class _MessagesScreenState extends State<MessagesScreen>
   }
 
   Future<void> _startVideoRecording() async {
+    _isVideoRecordingCanceled = false;
+    setState(() {
+      _isRecordingVideo = true;
+    });
     try {
       await _cameraService.initialize();
+      if (_isVideoRecordingCanceled) {
+        _cameraService.dispose();
+        return;
+      }
       await _cameraService.startRecording();
-      setState(() {
-        _isRecordingVideo = true;
-      });
     } catch (e) {
       if (mounted) {
+        setState(() {
+          _isRecordingVideo = false;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Camera error: ${e.toString()}')),
         );
@@ -230,6 +244,7 @@ class _MessagesScreenState extends State<MessagesScreen>
   }
 
   Future<void> _stopVideoRecording(bool send) async {
+    _isVideoRecordingCanceled = true;
     final file = await _cameraService.stopRecording();
     setState(() {
       _isRecordingVideo = false;
@@ -795,25 +810,39 @@ class _MessagesScreenState extends State<MessagesScreen>
                 ),
                 const SizedBox(width: 10),
                 GestureDetector(
-                  onTap: _isSendButtonActive
-                      ? _sendMessage
-                      : () {
-                          setState(() {
-                            _recordingMode =
-                                _recordingMode == RecordingMode.voice
-                                ? RecordingMode.video
-                                : RecordingMode.voice;
+                  onTapDown: _isSendButtonActive
+                      ? null
+                      : (_) {
+                          _recordTimerFired = false;
+                          _recordTimer?.cancel();
+                          _recordTimer = Timer(const Duration(milliseconds: 300), () {
+                            _recordTimerFired = true;
+                            if (_recordingMode == RecordingMode.voice) {
+                              setState(() => _isRecording = true);
+                            } else {
+                              _startVideoRecording();
+                            }
                           });
                         },
-                  onLongPress: _isSendButtonActive
+                  onTapUp: _isSendButtonActive
                       ? null
-                      : () {
-                          if (_recordingMode == RecordingMode.voice) {
-                            setState(() => _isRecording = true);
-                          } else {
-                            _startVideoRecording();
+                      : (_) {
+                          _recordTimer?.cancel();
+                          if (!_recordTimerFired) {
+                            setState(() {
+                              _recordingMode =
+                                  _recordingMode == RecordingMode.voice
+                                  ? RecordingMode.video
+                                  : RecordingMode.voice;
+                            });
                           }
                         },
+                  onTapCancel: _isSendButtonActive
+                      ? null
+                      : () {
+                          _recordTimer?.cancel();
+                        },
+                  onTap: _isSendButtonActive ? _sendMessage : null,
                   child: Container(
                     width: 44,
                     height: 44,
