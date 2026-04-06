@@ -7,6 +7,7 @@ class AttachedContentModel {
   final String mimeType;
   final String accessKey;
   final String typeContent; // image | voice | video | document
+  final String? localPath;
 
   AttachedContentModel({
     required this.id,
@@ -15,6 +16,7 @@ class AttachedContentModel {
     required this.mimeType,
     required this.accessKey,
     required this.typeContent,
+    this.localPath,
   });
 
   factory AttachedContentModel.fromJson(Map<String, dynamic> json) {
@@ -27,6 +29,7 @@ class AttachedContentModel {
       typeContent:
           (json['type_content'] ?? json['TypeContent'])?.toString() ??
           'document',
+      localPath: json['local_path']?.toString(),
     );
   }
 
@@ -37,6 +40,7 @@ class AttachedContentModel {
       'file_name': fileName,
       'file_size': fileSize,
       'mime_type': mimeType,
+      if (localPath != null) 'local_path': localPath,
     };
   }
 }

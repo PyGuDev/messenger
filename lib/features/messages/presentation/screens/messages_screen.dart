@@ -52,7 +52,7 @@ class _MessagesScreenState extends State<MessagesScreen>
   MessageModel? _replyingToMessage;
   final Map<String, GlobalKey> _messageKeys = {};
   String? _highlightedMessageId;
-  
+
   Timer? _recordTimer;
   bool _recordTimerFired = false;
   bool _isVideoRecordingCanceled = false;
@@ -440,6 +440,9 @@ class _MessagesScreenState extends State<MessagesScreen>
                 accessKey: message.attachedContent
                     .firstWhere((c) => c.typeContent == 'voice')
                     .accessKey,
+                localPath: message.attachedContent
+                    .firstWhere((c) => c.typeContent == 'voice')
+                    .localPath,
                 isMe: isMine,
               ),
             ] else if (message.attachedContent.any(
@@ -449,6 +452,9 @@ class _MessagesScreenState extends State<MessagesScreen>
                 accessKey: message.attachedContent
                     .firstWhere((c) => c.typeContent == 'video')
                     .accessKey,
+                localPath: message.attachedContent
+                    .firstWhere((c) => c.typeContent == 'video')
+                    .localPath,
                 isMe: isMine,
               ),
             ] else
@@ -815,14 +821,17 @@ class _MessagesScreenState extends State<MessagesScreen>
                       : (_) {
                           _recordTimerFired = false;
                           _recordTimer?.cancel();
-                          _recordTimer = Timer(const Duration(milliseconds: 300), () {
-                            _recordTimerFired = true;
-                            if (_recordingMode == RecordingMode.voice) {
-                              setState(() => _isRecording = true);
-                            } else {
-                              _startVideoRecording();
-                            }
-                          });
+                          _recordTimer = Timer(
+                            const Duration(milliseconds: 300),
+                            () {
+                              _recordTimerFired = true;
+                              if (_recordingMode == RecordingMode.voice) {
+                                setState(() => _isRecording = true);
+                              } else {
+                                _startVideoRecording();
+                              }
+                            },
+                          );
                         },
                   onTapUp: _isSendButtonActive
                       ? null

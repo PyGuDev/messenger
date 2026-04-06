@@ -30,6 +30,8 @@ class _VideoFullscreenViewerState extends State<VideoFullscreenViewer> {
             _isInitialized = true;
           });
         }
+      }).catchError((e) {
+        debugPrint('VideoFullscreenViewer init error: $e');
       });
 
     _controller.addListener(() {

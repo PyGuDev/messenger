@@ -1,23 +1,24 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:dio/dio.dart';
-import 'package:path_provider/path_provider.dart';
+
 import 'package:flutter/foundation.dart' as foundation;
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import '../../../../shared/theme/app_colors.dart';
-import '../../../../core/network/file_service.dart';
 import '../../../../core/di/injection_container.dart';
-import '../../../../core/security/token_storage.dart';
+import '../../../../core/cache/media_cache_service.dart';
 
 class VoiceMessageBubble extends StatefulWidget {
   final String accessKey;
+  final String? localPath;
   final bool isMe;
-  final FileService
-  fileService; // Added this to pass it or just use sl in state
 
-  VoiceMessageBubble({super.key, required this.accessKey, required this.isMe})
-    : fileService = sl<FileService>();
+  const VoiceMessageBubble({
+    super.key,
+    required this.accessKey,
+    this.localPath,
+    required this.isMe,
+  });
 
   @override
   State<VoiceMessageBubble> createState() => _VoiceMessageBubbleState();
@@ -25,7 +26,7 @@ class VoiceMessageBubble extends StatefulWidget {
 
 class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
   final AudioPlayer _player = AudioPlayer();
-  final TokenStorage _tokenStorage = sl<TokenStorage>();
+  final MediaCacheService _mediaCache = sl<MediaCacheService>();
   bool _isPlaying = false;
   Duration _duration = Duration.zero;
   Duration _position = Duration.zero;
@@ -47,54 +48,67 @@ class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
         return;
       }
 
-      final url = widget.fileService.getDownloadUrl(widget.accessKey);
-      foundation.debugPrint('VoiceMessageBubble: Loading audio from URL: $url');
-
-      final tempDir = await getTemporaryDirectory();
-      final localFile = File('${tempDir.path}/voice_${widget.accessKey}.m4a');
-
-      if (!await localFile.exists()) {
-        foundation.debugPrint(
-          'VoiceMessageBubble: Downloading to cache: ${localFile.path}',
-        );
-        final token = await _tokenStorage.getAccessToken();
-        final dio = Dio();
-
-        await dio.download(
-          url,
-          localFile.path,
-          options: Options(headers: {'Authorization': 'Bearer $token'}),
-        );
-      } else {
-        foundation.debugPrint(
-          'VoiceMessageBubble: Playing from cache: ${localFile.path}',
-        );
+      // 1. Check localPath first (for fast optimistic UI playback)
+      if (widget.localPath != null && widget.localPath!.isNotEmpty) {
+        final localFile = File(widget.localPath!);
+        if (await localFile.exists()) {
+          foundation.debugPrint(
+            'VoiceMessageBubble: Playing from localPath: ${localFile.path}',
+          );
+          await _player.setAudioSource(
+            AudioSource.uri(Uri.file(localFile.path)),
+          );
+          _setupPlayerListeners();
+          return;
+        }
       }
 
-      await _player.setAudioSource(AudioSource.uri(Uri.file(localFile.path)));
+      // 2. Try MediaCacheService
+      foundation.debugPrint(
+        'VoiceMessageBubble: Loading audio from MediaCacheService',
+      );
+      final fileInfo = await _mediaCache.downloadFile(widget.accessKey);
 
-      _durationSubscription = _player.durationStream.listen((d) {
-        if (mounted) setState(() => _duration = d ?? Duration.zero);
-      });
-
-      _positionSubscription = _player.positionStream.listen((p) {
-        if (mounted) setState(() => _position = p);
-      });
-
-      _player.playerStateStream.listen((state) {
-        if (mounted) {
-          setState(() {
-            _isPlaying = state.playing;
-          });
-          if (state.processingState == ProcessingState.completed) {
-            _player.stop();
-            _player.seek(Duration.zero);
-          }
+      String finalPath = fileInfo.file.path;
+      if (!finalPath.toLowerCase().endsWith('.m4a') && 
+          !finalPath.toLowerCase().endsWith('.mp4') && 
+          !finalPath.toLowerCase().endsWith('.mp3')) {
+        final newFile = File('$finalPath.m4a');
+        if (!await newFile.exists()) {
+          await fileInfo.file.copy(newFile.path);
         }
-      });
+        finalPath = newFile.path;
+      }
+
+      await _player.setAudioSource(
+        AudioSource.uri(Uri.file(finalPath)),
+      );
+      _setupPlayerListeners();
     } catch (e) {
       foundation.debugPrint('VoiceMessageBubble: Error loading audio: $e');
     }
+  }
+
+  void _setupPlayerListeners() {
+    _durationSubscription = _player.durationStream.listen((d) {
+      if (mounted) setState(() => _duration = d ?? Duration.zero);
+    });
+
+    _positionSubscription = _player.positionStream.listen((p) {
+      if (mounted) setState(() => _position = p);
+    });
+
+    _player.playerStateStream.listen((state) {
+      if (mounted) {
+        setState(() {
+          _isPlaying = state.playing;
+        });
+        if (state.processingState == ProcessingState.completed) {
+          _player.stop();
+          _player.seek(Duration.zero);
+        }
+      }
+    });
   }
 
   @override

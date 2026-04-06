@@ -16,6 +16,9 @@ import '../network/file_service.dart';
 import '../network/voice_recorder_service.dart';
 import '../network/camera_service.dart';
 import '../../features/auth/presentation/bloc/auth_event.dart';
+import '../../features/messages/data/datasources/messages_local_data_source.dart';
+import '../local/database_helper.dart';
+import '../cache/media_cache_service.dart';
 
 final sl = GetIt.instance; // sl stands for Service Locator
 
@@ -27,6 +30,7 @@ Future<void> init() async {
   // Core
   sl.registerLazySingleton<TokenStorage>(() => TokenStorageImpl(sl()));
   sl.registerLazySingleton<NetworkInfo>(() => NetworkInfoImpl(sl()));
+  sl.registerLazySingleton<DatabaseHelper>(() => DatabaseHelper());
 
   // Network
   sl.registerLazySingleton<Dio>(
@@ -74,6 +78,12 @@ Future<void> init() async {
   );
   sl.registerLazySingleton<VoiceRecorderService>(() => VoiceRecorderService());
   sl.registerLazySingleton<CameraService>(() => CameraService());
+  sl.registerLazySingleton<MessagesLocalDataSource>(
+    () => MessagesLocalDataSourceImpl(sl()),
+  );
+  sl.registerLazySingleton<MediaCacheService>(
+    () => MediaCacheService(sl<FileService>(), sl<TokenStorage>()),
+  );
 
   // Bloc
   sl.registerFactory<NetworkBloc>(() => NetworkBloc(sl()));
@@ -98,6 +108,7 @@ Future<void> init() async {
       sl(),
       sl<UserService>(),
       sl<FileService>(),
+      sl<MessagesLocalDataSource>(),
     ),
   );
 }
