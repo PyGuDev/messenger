@@ -6,6 +6,7 @@ import '../../../../core/network/user_service.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/security/token_storage.dart';
 import '../../data/models/chat_model.dart';
+import '../../data/datasources/chats_local_data_source.dart';
 import 'chats_event.dart';
 import 'chats_state.dart';
 
@@ -14,9 +15,10 @@ class ChatsBloc extends Bloc<ChatsEvent, ChatsState> {
   final WebSocketService _wsService;
   final UserService _userService;
   final TokenStorage _tokenStorage;
+  final ChatsLocalDataSource _localDataSource;
   StreamSubscription? _wsSubscription;
 
-  ChatsBloc(this._dio, this._wsService, this._userService, this._tokenStorage) : super(ChatsInitial()) {
+  ChatsBloc(this._dio, this._wsService, this._userService, this._tokenStorage, this._localDataSource) : super(ChatsInitial()) {
     on<LoadChats>(_onLoadChats);
     on<LoadMoreChats>(_onLoadMoreChats);
     on<CreateChat>(_onCreateChat);
@@ -94,6 +96,11 @@ class ChatsBloc extends Bloc<ChatsEvent, ChatsState> {
   Future<void> _onLoadChats(LoadChats event, Emitter<ChatsState> emit) async {
     emit(ChatsLoading());
     try {
+      final localChats = await _localDataSource.getChats();
+      if (localChats.isNotEmpty) {
+        emit(ChatsLoaded(localChats, hasReachedMax: false));
+      }
+
       final response = await _dio.get('/chats', queryParameters: {
         'limit': 20,
         'offset': 0,
@@ -109,8 +116,17 @@ class ChatsBloc extends Bloc<ChatsEvent, ChatsState> {
 
       chats = await _resolvePersonalChatNames(chats);
       
+      await _localDataSource.clearAll();
+      await _localDataSource.saveChats(chats);
+      
       emit(ChatsLoaded(chats, hasReachedMax: chats.length < 20));
     } catch (e) {
+      if (state is ChatsLoaded) {
+        // If we already have cached chats displayed, don't replace them with an error screen.
+        // Also set hasReachedMax: true to stop the bottom spinner from rotating endlessly.
+        emit((state as ChatsLoaded).copyWith(hasReachedMax: true));
+        return;
+      }
       emit(ChatsError(e.toString()));
     }
   }
@@ -137,12 +153,15 @@ class ChatsBloc extends Bloc<ChatsEvent, ChatsState> {
 
         newChats = await _resolvePersonalChatNames(newChats);
 
+        await _localDataSource.saveChats(newChats);
+
         emit(currentState.copyWith(
           chats: List.from(currentState.chats)..addAll(newChats),
           hasReachedMax: newChats.length < 20,
         ));
       } catch (e) {
-        // Silently fail pagination error for now
+        // Silently fail pagination error for now, but hide the bottom spinner
+        emit(currentState.copyWith(hasReachedMax: true));
       }
     }
   }
@@ -193,6 +212,7 @@ class ChatsBloc extends Bloc<ChatsEvent, ChatsState> {
             ..removeAt(existingChatIndex)
             ..insert(0, updatedChat); // Move to top
             
+          await _localDataSource.saveChat(updatedChat);
           emit(currentState.copyWith(chats: updatedChats));
         } else {
           // If chat not in list, reload all
@@ -219,6 +239,7 @@ class ChatsBloc extends Bloc<ChatsEvent, ChatsState> {
             final updatedChats = List<ChatModel>.from(currentState.chats)
               ..[existingChatIndex] = updatedChat;
               
+            await _localDataSource.saveChat(updatedChat);
             emit(currentState.copyWith(chats: updatedChats));
           }
         }

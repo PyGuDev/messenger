@@ -18,7 +18,12 @@ class DatabaseHelper {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, 'messenger.db');
 
-    return await openDatabase(path, version: 1, onCreate: _onCreate);
+    return await openDatabase(
+      path,
+      version: 2,
+      onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
+    );
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -41,5 +46,41 @@ class DatabaseHelper {
     await db.execute(
       'CREATE INDEX idx_messages_chat_id_created_at ON messages(chat_id, created_at DESC)',
     );
+
+    await db.execute('''
+      CREATE TABLE chats (
+        id TEXT PRIMARY KEY,
+        type INTEGER NOT NULL,
+        title TEXT,
+        members TEXT,
+        last_message TEXT,
+        unread_count INTEGER NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    ''');
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // Add local_path if not exists based on previous conversations, but I'll focus on chats table here
+      // But actually, there was a migration in the past adding local_path to messages. I should wrap it in try-catch to avoid duplicate column.
+      try {
+        await db.execute('ALTER TABLE messages ADD COLUMN local_path TEXT');
+      } catch (_) {}
+
+      await db.execute('''
+        CREATE TABLE chats (
+          id TEXT PRIMARY KEY,
+          type INTEGER NOT NULL,
+          title TEXT,
+          members TEXT,
+          last_message TEXT,
+          unread_count INTEGER NOT NULL,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        )
+      ''');
+    }
   }
 }

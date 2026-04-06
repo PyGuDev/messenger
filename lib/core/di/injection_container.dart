@@ -17,13 +17,18 @@ import '../network/voice_recorder_service.dart';
 import '../network/camera_service.dart';
 import '../../features/auth/presentation/bloc/auth_event.dart';
 import '../../features/messages/data/datasources/messages_local_data_source.dart';
+import '../../features/chats/data/datasources/chats_local_data_source.dart';
 import '../local/database_helper.dart';
 import '../cache/media_cache_service.dart';
+
+import 'package:shared_preferences/shared_preferences.dart';
 
 final sl = GetIt.instance; // sl stands for Service Locator
 
 Future<void> init() async {
   // External
+  final sharedPreferences = await SharedPreferences.getInstance();
+  sl.registerLazySingleton(() => sharedPreferences);
   sl.registerLazySingleton(() => const FlutterSecureStorage());
   sl.registerLazySingleton(() => Connectivity());
 
@@ -81,6 +86,9 @@ Future<void> init() async {
   sl.registerLazySingleton<MessagesLocalDataSource>(
     () => MessagesLocalDataSourceImpl(sl()),
   );
+  sl.registerLazySingleton<ChatsLocalDataSource>(
+    () => ChatsLocalDataSourceImpl(sl()),
+  );
   sl.registerLazySingleton<MediaCacheService>(
     () => MediaCacheService(sl<FileService>(), sl<TokenStorage>()),
   );
@@ -91,7 +99,7 @@ Future<void> init() async {
     () => AuthBloc(sl(instanceName: 'authDio'), sl(), sl()),
   );
   sl.registerFactory<ProfileBloc>(
-    () => ProfileBloc(sl(instanceName: 'authDio')),
+    () => ProfileBloc(sl(instanceName: 'authDio'), sl()),
   );
   sl.registerFactory<ChatsBloc>(
     () => ChatsBloc(
@@ -99,6 +107,7 @@ Future<void> init() async {
       sl(),
       sl<UserService>(),
       sl<TokenStorage>(),
+      sl<ChatsLocalDataSource>(),
     ),
   );
   sl.registerFactory<MessagesBloc>(
