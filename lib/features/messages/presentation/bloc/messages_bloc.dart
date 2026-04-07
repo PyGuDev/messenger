@@ -578,17 +578,19 @@ class MessagesBloc extends Bloc<MessagesEvent, MessagesState> {
         MessageModel serverMessage = serverMessageRaw;
         if (serverMessageRaw.attachedContent.isNotEmpty) {
           final newAttachments = serverMessageRaw.attachedContent.map((a) {
-             return AttachedContentModel(
-                  id: a.id,
-                  fileName: a.fileName,
-                  fileSize: a.fileSize,
-                  mimeType: a.mimeType,
-                  accessKey: a.accessKey,
-                  typeContent: a.typeContent,
-                  localPath: event.filePath,
-                );
+            return AttachedContentModel(
+              id: a.id,
+              fileName: a.fileName,
+              fileSize: a.fileSize,
+              mimeType: a.mimeType,
+              accessKey: a.accessKey,
+              typeContent: a.typeContent,
+              localPath: event.filePath,
+            );
           }).toList();
-          serverMessage = serverMessageRaw.copyWith(attachedContent: newAttachments);
+          serverMessage = serverMessageRaw.copyWith(
+            attachedContent: newAttachments,
+          );
         }
 
         // Update local storage with real message
@@ -779,17 +781,19 @@ class MessagesBloc extends Bloc<MessagesEvent, MessagesState> {
         MessageModel serverMessage = serverMessageRaw;
         if (serverMessageRaw.attachedContent.isNotEmpty) {
           final newAttachments = serverMessageRaw.attachedContent.map((a) {
-             return AttachedContentModel(
-                  id: a.id,
-                  fileName: a.fileName,
-                  fileSize: a.fileSize,
-                  mimeType: a.mimeType,
-                  accessKey: a.accessKey,
-                  typeContent: a.typeContent,
-                  localPath: event.filePath,
-                );
+            return AttachedContentModel(
+              id: a.id,
+              fileName: a.fileName,
+              fileSize: a.fileSize,
+              mimeType: a.mimeType,
+              accessKey: a.accessKey,
+              typeContent: a.typeContent,
+              localPath: event.filePath,
+            );
           }).toList();
-          serverMessage = serverMessageRaw.copyWith(attachedContent: newAttachments);
+          serverMessage = serverMessageRaw.copyWith(
+            attachedContent: newAttachments,
+          );
         }
 
         // Update local storage with real message

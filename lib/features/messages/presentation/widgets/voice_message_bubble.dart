@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart' as foundation;
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../core/di/injection_container.dart';
 import '../../../../core/cache/media_cache_service.dart';
@@ -33,18 +34,21 @@ class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
   StreamSubscription? _durationSubscription;
   StreamSubscription? _positionSubscription;
 
+  bool _isDownloading = false;
+  bool _isDownloaded = false;
+  double _downloadProgress = 0.0;
+  StreamSubscription? _downloadSubscription;
+
   @override
   void initState() {
     super.initState();
-    _initPlayer();
+    _checkLocalState();
   }
 
-  Future<void> _initPlayer() async {
+  Future<void> _checkLocalState() async {
     try {
       if (widget.accessKey.isEmpty) {
-        foundation.debugPrint(
-          'VoiceMessageBubble: Warning: accessKey is empty!',
-        );
+        foundation.debugPrint('VoiceMessageBubble: Warning: accessKey is empty!');
         return;
       }
 
@@ -52,30 +56,89 @@ class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
       if (widget.localPath != null && widget.localPath!.isNotEmpty) {
         final localFile = File(widget.localPath!);
         if (await localFile.exists()) {
-          foundation.debugPrint(
-            'VoiceMessageBubble: Playing from localPath: ${localFile.path}',
-          );
-          await _player.setAudioSource(
-            AudioSource.uri(Uri.file(localFile.path)),
-          );
-          _setupPlayerListeners();
+          foundation.debugPrint('VoiceMessageBubble: Playing from localPath: ${localFile.path}');
+          _isDownloaded = true;
+          await _initPlayback(localFile);
           return;
         }
       }
 
       // 2. Try MediaCacheService
-      foundation.debugPrint(
-        'VoiceMessageBubble: Loading audio from MediaCacheService',
-      );
-      final fileInfo = await _mediaCache.downloadFile(widget.accessKey);
+      foundation.debugPrint('VoiceMessageBubble: Checking cache from MediaCacheService');
+      final fileInfo = await _mediaCache.getFileFromCache(widget.accessKey);
+      if (fileInfo != null) {
+        _isDownloaded = true;
+        await _initPlayback(fileInfo.file);
+        return;
+      }
 
-      String finalPath = fileInfo.file.path;
+      // Not downloaded yet. Wait for manual trigger.
+      if (mounted) {
+        setState(() {
+          _isDownloaded = false;
+          _isDownloading = false;
+        });
+      }
+    } catch (e) {
+      foundation.debugPrint('VoiceMessageBubble: Error checking local state: $e');
+    }
+  }
+
+  Future<void> _startDownload() async {
+    setState(() {
+      _isDownloading = true;
+      _downloadProgress = 0.0;
+    });
+
+    try {
+      _downloadSubscription = _mediaCache
+          .getFileStream(widget.accessKey)
+          .listen(
+            (response) {
+              if (response is DownloadProgress) {
+                if (mounted) {
+                  setState(() {
+                    _downloadProgress = response.progress ?? 0.0;
+                  });
+                }
+              } else if (response is FileInfo) {
+                if (mounted) {
+                  setState(() {
+                    _isDownloading = false;
+                    _isDownloaded = true;
+                  });
+                  _initPlayback(response.file);
+                }
+              }
+            },
+            onError: (e) {
+              foundation.debugPrint('VoiceMessageBubble download error: $e');
+              if (mounted) {
+                setState(() {
+                  _isDownloading = false;
+                });
+              }
+            },
+          );
+    } catch (e) {
+      foundation.debugPrint('VoiceMessageBubble download error: $e');
+      if (mounted) {
+        setState(() {
+          _isDownloading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _initPlayback(File file) async {
+    try {
+      String finalPath = file.path;
       if (!finalPath.toLowerCase().endsWith('.m4a') && 
           !finalPath.toLowerCase().endsWith('.mp4') && 
           !finalPath.toLowerCase().endsWith('.mp3')) {
         final newFile = File('$finalPath.m4a');
         if (!await newFile.exists()) {
-          await fileInfo.file.copy(newFile.path);
+          await file.copy(newFile.path);
         }
         finalPath = newFile.path;
       }
@@ -113,6 +176,7 @@ class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
 
   @override
   void dispose() {
+    _downloadSubscription?.cancel();
     _durationSubscription?.cancel();
     _positionSubscription?.cancel();
     _player.dispose();
@@ -138,20 +202,36 @@ class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: Row(
         children: [
-          // Play/Pause Button
-          IconButton(
-            icon: Icon(
-              _isPlaying ? Icons.pause : Icons.play_arrow,
-              color: color,
+          // Play/Pause/Download Button
+          if (!_isDownloaded)
+            IconButton(
+              icon: _isDownloading
+                  ? SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        value: _downloadProgress > 0 ? _downloadProgress : null,
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(color),
+                      ),
+                    )
+                  : Icon(Icons.download, color: color),
+              onPressed: _isDownloading ? null : _startDownload,
+            )
+          else
+            IconButton(
+              icon: Icon(
+                _isPlaying ? Icons.pause : Icons.play_arrow,
+                color: color,
+              ),
+              onPressed: () {
+                if (_isPlaying) {
+                  _player.pause();
+                } else {
+                  _player.play();
+                }
+              },
             ),
-            onPressed: () {
-              if (_isPlaying) {
-                _player.pause();
-              } else {
-                _player.play();
-              }
-            },
-          ),
           // Progress Slider + Duration
           Expanded(
             child: Column(
@@ -174,9 +254,9 @@ class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
                   child: Slider(
                     value: _position.inMilliseconds.toDouble().clamp(
                       0,
-                      _duration.inMilliseconds.toDouble(),
+                      _duration.inMilliseconds.toDouble() > 0 ? _duration.inMilliseconds.toDouble() : 1,
                     ),
-                    max: _duration.inMilliseconds.toDouble(),
+                    max: _duration.inMilliseconds.toDouble() > 0 ? _duration.inMilliseconds.toDouble() : 1,
                     onChanged: (val) {
                       _player.seek(Duration(milliseconds: val.toInt()));
                     },

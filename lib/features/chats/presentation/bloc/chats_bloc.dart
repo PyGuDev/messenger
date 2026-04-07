@@ -18,7 +18,13 @@ class ChatsBloc extends Bloc<ChatsEvent, ChatsState> {
   final ChatsLocalDataSource _localDataSource;
   StreamSubscription? _wsSubscription;
 
-  ChatsBloc(this._dio, this._wsService, this._userService, this._tokenStorage, this._localDataSource) : super(ChatsInitial()) {
+  ChatsBloc(
+    this._dio,
+    this._wsService,
+    this._userService,
+    this._tokenStorage,
+    this._localDataSource,
+  ) : super(ChatsInitial()) {
     on<LoadChats>(_onLoadChats);
     on<LoadMoreChats>(_onLoadMoreChats);
     on<CreateChat>(_onCreateChat);
@@ -54,7 +60,9 @@ class ChatsBloc extends Bloc<ChatsEvent, ChatsState> {
 
   /// For personal chats (type=1), resolve the other member's name.
   /// If members are empty in the chat list, fetch individual chat details.
-  Future<List<ChatModel>> _resolvePersonalChatNames(List<ChatModel> chats) async {
+  Future<List<ChatModel>> _resolvePersonalChatNames(
+    List<ChatModel> chats,
+  ) async {
     final currentUserId = await _getCurrentUserId();
     if (currentUserId == null) return chats;
 
@@ -68,7 +76,8 @@ class ChatsBloc extends Bloc<ChatsEvent, ChatsState> {
           try {
             final detailResponse = await _dio.get('/chats/${chat.id}');
             final detailData = detailResponse.data as Map<String, dynamic>;
-            final chatData = detailData['data'] as Map<String, dynamic>? ?? detailData;
+            final chatData =
+                detailData['data'] as Map<String, dynamic>? ?? detailData;
             final membersList = chatData['members'] as List<dynamic>? ?? [];
             members = membersList
                 .map((e) => MemberModel.fromJson(e as Map<String, dynamic>))
@@ -101,24 +110,24 @@ class ChatsBloc extends Bloc<ChatsEvent, ChatsState> {
         emit(ChatsLoaded(localChats, hasReachedMax: false));
       }
 
-      final response = await _dio.get('/chats', queryParameters: {
-        'limit': 20,
-        'offset': 0,
-      });
-      
+      final response = await _dio.get(
+        '/chats',
+        queryParameters: {'limit': 20, 'offset': 0},
+      );
+
       final Map<String, dynamic> responseData = response.data;
       if (responseData['status'] == 'error') {
         throw ChatApiException.fromJson(responseData);
       }
-      
+
       final List<dynamic> chatsData = responseData['data']['chats'] ?? [];
       var chats = chatsData.map((json) => ChatModel.fromJson(json)).toList();
 
       chats = await _resolvePersonalChatNames(chats);
-      
+
       await _localDataSource.clearAll();
       await _localDataSource.saveChats(chats);
-      
+
       emit(ChatsLoaded(chats, hasReachedMax: chats.length < 20));
     } catch (e) {
       if (state is ChatsLoaded) {
@@ -131,17 +140,20 @@ class ChatsBloc extends Bloc<ChatsEvent, ChatsState> {
     }
   }
 
-  Future<void> _onLoadMoreChats(LoadMoreChats event, Emitter<ChatsState> emit) async {
+  Future<void> _onLoadMoreChats(
+    LoadMoreChats event,
+    Emitter<ChatsState> emit,
+  ) async {
     if (state is ChatsLoaded) {
       final currentState = state as ChatsLoaded;
       if (currentState.hasReachedMax || currentState.chats.isEmpty) return;
 
       try {
         final offset = currentState.chats.length;
-        final response = await _dio.get('/chats', queryParameters: {
-          'limit': 20,
-          'offset': offset,
-        });
+        final response = await _dio.get(
+          '/chats',
+          queryParameters: {'limit': 20, 'offset': offset},
+        );
 
         final Map<String, dynamic> responseData = response.data;
         if (responseData['status'] == 'error') {
@@ -149,16 +161,20 @@ class ChatsBloc extends Bloc<ChatsEvent, ChatsState> {
         }
 
         final List<dynamic> newChatsData = responseData['data']['chats'] ?? [];
-        var newChats = newChatsData.map((json) => ChatModel.fromJson(json)).toList();
+        var newChats = newChatsData
+            .map((json) => ChatModel.fromJson(json))
+            .toList();
 
         newChats = await _resolvePersonalChatNames(newChats);
 
         await _localDataSource.saveChats(newChats);
 
-        emit(currentState.copyWith(
-          chats: List.from(currentState.chats)..addAll(newChats),
-          hasReachedMax: newChats.length < 20,
-        ));
+        emit(
+          currentState.copyWith(
+            chats: List.from(currentState.chats)..addAll(newChats),
+            hasReachedMax: newChats.length < 20,
+          ),
+        );
       } catch (e) {
         // Silently fail pagination error for now, but hide the bottom spinner
         emit(currentState.copyWith(hasReachedMax: true));
@@ -168,15 +184,18 @@ class ChatsBloc extends Bloc<ChatsEvent, ChatsState> {
 
   Future<void> _onCreateChat(CreateChat event, Emitter<ChatsState> emit) async {
     try {
-      final response = await _dio.post('/chats', data: {
-        'type': 1, // Private chat
-        'member_ids': [event.userId],
-      });
-      
+      final response = await _dio.post(
+        '/chats',
+        data: {
+          'type': 1, // Private chat
+          'member_ids': [event.userId],
+        },
+      );
+
       if (response.data['status'] == 'error') {
         throw ChatApiException.fromJson(response.data);
       }
-      
+
       // Reload chats to get the new chat with full metadata
       add(LoadChats());
     } catch (e) {
@@ -185,7 +204,10 @@ class ChatsBloc extends Bloc<ChatsEvent, ChatsState> {
     }
   }
 
-  Future<void> _onWebSocketEvent(OnWebSocketEvent event, Emitter<ChatsState> emit) async {
+  Future<void> _onWebSocketEvent(
+    OnWebSocketEvent event,
+    Emitter<ChatsState> emit,
+  ) async {
     if (state is ChatsLoaded) {
       final currentState = state as ChatsLoaded;
       final eventData = event.event;
@@ -193,25 +215,33 @@ class ChatsBloc extends Bloc<ChatsEvent, ChatsState> {
       if (eventData['type'] == 'new_message') {
         final payload = eventData['payload'];
         if (payload == null) return;
-        
+
         final chatId = payload['chat_id']?.toString();
         final messageData = payload['message'];
         if (messageData == null || chatId == null) return;
-        
-        final existingChatIndex = currentState.chats.indexWhere((c) => c.id == chatId);
-        
+
+        final existingChatIndex = currentState.chats.indexWhere(
+          (c) => c.id == chatId,
+        );
+
         if (existingChatIndex != -1) {
           final chat = currentState.chats[existingChatIndex];
           final updatedChat = chat.copyWith(
             lastMessage: LastMessageModel.fromJson(messageData),
             unreadCount: chat.unreadCount + 1,
-            updatedAt: DateTime.tryParse((messageData['created_at'] ?? messageData['CreatedAt'])?.toString() ?? '') ?? chat.updatedAt,
+            updatedAt:
+                DateTime.tryParse(
+                  (messageData['created_at'] ?? messageData['CreatedAt'])
+                          ?.toString() ??
+                      '',
+                ) ??
+                chat.updatedAt,
           );
-          
+
           final updatedChats = List<ChatModel>.from(currentState.chats)
             ..removeAt(existingChatIndex)
             ..insert(0, updatedChat); // Move to top
-            
+
           await _localDataSource.saveChat(updatedChat);
           emit(currentState.copyWith(chats: updatedChats));
         } else {
@@ -221,7 +251,7 @@ class ChatsBloc extends Bloc<ChatsEvent, ChatsState> {
       } else if (eventData['type'] == 'message_read') {
         final payload = eventData['payload'];
         if (payload == null) return;
-        
+
         final chatId = payload['chat_id']?.toString();
         final readerId = payload['user_id']?.toString();
         if (chatId == null) return;
@@ -229,16 +259,18 @@ class ChatsBloc extends Bloc<ChatsEvent, ChatsState> {
         final currentUserIdFromStorage = await _getCurrentUserId();
         final myId = (currentUserIdFromStorage ?? '').trim();
         final rId = readerId?.trim();
-        
+
         if (rId == null || rId == myId) {
-          final existingChatIndex = currentState.chats.indexWhere((c) => c.id == chatId);
+          final existingChatIndex = currentState.chats.indexWhere(
+            (c) => c.id == chatId,
+          );
           if (existingChatIndex != -1) {
             final chat = currentState.chats[existingChatIndex];
             final updatedChat = chat.copyWith(unreadCount: 0);
-            
+
             final updatedChats = List<ChatModel>.from(currentState.chats)
               ..[existingChatIndex] = updatedChat;
-              
+
             await _localDataSource.saveChat(updatedChat);
             emit(currentState.copyWith(chats: updatedChats));
           }

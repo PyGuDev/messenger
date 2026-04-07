@@ -69,9 +69,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     try {
       final response = await _dio.post('/auth/signup', data: {
         'email': event.email,
-        'first_name': event.firstName,
-        'last_name': event.lastName,
+        'firstName': event.firstName,
+        'lastName': event.lastName,
         'password': event.password,
+        'confirmPassword': event.confirmPassword,
+        'phone': event.phone,
       });
       
       final responseData = response.data;

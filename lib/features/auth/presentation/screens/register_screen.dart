@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:messenger/l10n/app_localizations.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import 'package:messenger/shared/theme/app_colors.dart';
 import 'package:messenger/shared/widgets/primary_button.dart';
 import 'package:messenger/shared/widgets/custom_text_field.dart';
@@ -21,14 +22,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+
+  final _phoneFormatter = MaskTextInputFormatter(
+    mask: '+7 (###) ###-##-##',
+    filter: { "#": RegExp(r'[0-9]') },
+    type: MaskAutoCompletionType.lazy,
+  );
 
   @override
   void dispose() {
     _firstNameController.dispose();
     _lastNameController.dispose();
     _emailController.dispose();
+    _phoneController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
@@ -42,6 +51,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
               firstName: _firstNameController.text,
               lastName: _lastNameController.text,
               password: _passwordController.text,
+              confirmPassword: _confirmPasswordController.text,
+              phone: '+7${_phoneFormatter.getUnmaskedText()}',
             ),
           );
     }
@@ -143,6 +154,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           }
                           if (!value.contains('@')) {
                             return 'Please enter a valid email';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      CustomTextField(
+                        controller: _phoneController,
+                        hintText: '+7 (XXX) XXX-XX-XX',
+                        prefixIcon: Icons.phone_outlined,
+                        keyboardType: TextInputType.phone,
+                        inputFormatters: [_phoneFormatter],
+                        validator: (value) {
+                          if (value == null || value.isEmpty || _phoneFormatter.getUnmaskedText().length != 10) {
+                            return 'Please enter a valid phone number';
                           }
                           return null;
                         },
