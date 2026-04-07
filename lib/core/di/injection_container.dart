@@ -101,7 +101,7 @@ Future<void> init() async {
   sl.registerFactory<ProfileBloc>(
     () => ProfileBloc(sl(instanceName: 'authDio'), sl()),
   );
-  sl.registerFactory<ChatsBloc>(
+  sl.registerLazySingleton<ChatsBloc>(
     () => ChatsBloc(
       sl(instanceName: 'chatDio'),
       sl(),

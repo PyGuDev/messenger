@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:messenger/shared/theme/app_colors.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:messenger/core/di/injection_container.dart';
+import 'package:messenger/features/chats/presentation/bloc/chats_bloc.dart';
+import 'package:messenger/features/chats/presentation/bloc/chats_event.dart';
 
 class ContactProfileScreen extends StatefulWidget {
   final String name;
@@ -96,6 +99,8 @@ class _ContactProfileScreenState extends State<ContactProfileScreen> {
       debugPrint('[CHAT] Final chatId=$chatId, mounted=$mounted');
       if (mounted && chatId != null) {
         debugPrint('[CHAT] Navigating to /chat/$chatId');
+        // Notify ChatsBloc to refresh the list
+        context.read<ChatsBloc>().add(LoadChats());
         context.push('/chat/$chatId', extra: widget.name);
       }
     } catch (e) {
