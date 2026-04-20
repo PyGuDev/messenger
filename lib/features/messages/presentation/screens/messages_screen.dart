@@ -7,8 +7,11 @@ import 'package:go_router/go_router.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
 import '../../../../core/network/file_service.dart';
 import '../../../../core/security/token_storage.dart';
+import '../../../../core/cache/media_cache_service.dart';
 import '../widgets/image_fullscreen_viewer.dart';
 import 'package:intl/intl.dart';
 import 'package:messenger/shared/theme/app_colors.dart';
@@ -619,29 +622,9 @@ class _MessagesScreenState extends State<MessagesScreen>
             ] else if (message.attachedContent.any(
               (c) => c.typeContent == 'document',
             )) ...[
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: isMine ? Colors.white.withOpacity(0.2) : Colors.grey.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                   Icon(Icons.insert_drive_file, color: isMine ? Colors.white : AppColors.accentBlue, size: 28),
-                   const SizedBox(width: 8),
-                   Flexible(
-                     child: Text(
-                       message.attachedContent.firstWhere((c) => c.typeContent == 'document').fileName,
-                       style: TextStyle(
-                         color: isMine ? AppColors.textOnAccent : AppColors.textPrimary,
-                         fontSize: 14,
-                       ),
-                       overflow: TextOverflow.ellipsis,
-                     ),
-                   ),
-                  ]
-                ),
+              _DocumentBubble(
+                content: message.attachedContent.firstWhere((c) => c.typeContent == 'document'),
+                isMine: isMine,
               ),
               if (message.text.isNotEmpty) ...[
                 const SizedBox(height: 8),
@@ -1172,6 +1155,130 @@ class _MessagesScreenState extends State<MessagesScreen>
             onPressed: _cancelReply,
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Виджет отображения документа с открытием через стандартные средства ОС
+class _DocumentBubble extends StatefulWidget {
+  final AttachedContentModel content;
+  final bool isMine;
+
+  const _DocumentBubble({required this.content, required this.isMine});
+
+  @override
+  State<_DocumentBubble> createState() => _DocumentBubbleState();
+}
+
+class _DocumentBubbleState extends State<_DocumentBubble> {
+  bool _isLoading = false;
+
+  Future<void> _openFile() async {
+    // Если файл уже есть локально — открываем сразу (расширение сохранено)
+    if (widget.content.localPath != null && widget.content.localPath!.isNotEmpty) {
+      final file = File(widget.content.localPath!);
+      if (await file.exists()) {
+        await OpenFilex.open(widget.content.localPath!);
+        return;
+      }
+    }
+
+    // Скачиваем через кеш
+    setState(() => _isLoading = true);
+    try {
+      final fileInfo = await sl<MediaCacheService>().downloadFile(widget.content.accessKey);
+
+      // flutter_cache_manager сохраняет файл без расширения →
+      // iOS не определяет тип. Копируем с правильным именем во temp.
+      final fileName = widget.content.fileName.isNotEmpty
+          ? widget.content.fileName
+          : 'file';
+      final tempDir = await getTemporaryDirectory();
+      final destPath = '${tempDir.path}/$fileName';
+      final destFile = File(destPath);
+      await fileInfo.file.copy(destPath);
+
+      final result = await OpenFilex.open(destFile.path);
+      if (result.type != ResultType.done && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Не удалось открыть: ${result.message}')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ошибка: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isMine = widget.isMine;
+    return GestureDetector(
+      onTap: _openFile,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: isMine ? Colors.white.withValues(alpha: 0.2) : Colors.grey.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_isLoading)
+              const SizedBox(
+                width: 28,
+                height: 28,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            else
+              Icon(
+                Icons.insert_drive_file,
+                color: isMine ? Colors.white : AppColors.accentBlue,
+                size: 28,
+              ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    widget.content.fileName,
+                    style: TextStyle(
+                      color: isMine ? AppColors.textOnAccent : AppColors.textPrimary,
+                      fontSize: 14,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (_isLoading)
+                    Text(
+                      'Загрузка...',
+                      style: TextStyle(
+                        color: (isMine ? AppColors.textOnAccent : AppColors.textPrimary)
+                            .withValues(alpha: 0.6),
+                        fontSize: 11,
+                      ),
+                    )
+                  else
+                    Text(
+                      'Нажмите, чтобы открыть',
+                      style: TextStyle(
+                        color: (isMine ? AppColors.textOnAccent : AppColors.textPrimary)
+                            .withValues(alpha: 0.6),
+                        fontSize: 11,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
