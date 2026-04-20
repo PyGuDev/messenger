@@ -1,8 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' as foundation;
-import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
-import 'package:google_fonts/google_fonts.dart' hide Config;
+import 'package:messenger/features/messages/presentation/widgets/persistent_emoji_picker.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
@@ -694,7 +693,15 @@ class _MessagesScreenState extends State<MessagesScreen>
                 ),
               ),
               _buildMessageInput(),
-              _buildEmojiPicker(),
+              PersistentEmojiPicker(
+                textEditingController: _textController,
+                isVisible: _emojiVisible,
+                onEmojiSelected: () {
+                  setState(() {
+                    _isSendButtonActive = _textController.text.trim().isNotEmpty;
+                  });
+                },
+              ),
             ],
           ),
           if (_isRecordingVideo)
@@ -751,40 +758,51 @@ class _MessagesScreenState extends State<MessagesScreen>
           child: SafeArea(
             bottom: !_emojiVisible,
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                const Icon(
-                  Icons.attach_file,
-                  color: AppColors.textTertiary,
-                  size: 24,
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 10),
+                  child: Icon(
+                    Icons.attach_file,
+                    color: AppColors.textTertiary,
+                    size: 24,
+                  ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Container(
-                    height: 44,
+                    constraints: const BoxConstraints(
+                      minHeight: 44,
+                      maxHeight: 150,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.bgInput,
                       borderRadius: BorderRadius.circular(22),
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                     child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              _emojiVisible = !_emojiVisible;
-                            });
-                            if (_emojiVisible) {
-                              FocusScope.of(context).unfocus();
-                            }
-                          },
-                          child: Icon(
-                            _emojiVisible
-                                ? Icons.keyboard
-                                : Icons.sentiment_satisfied_alt,
-                            color: _emojiVisible
-                                ? AppColors.accentBlue
-                                : AppColors.textTertiary,
-                            size: 22,
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _emojiVisible = !_emojiVisible;
+                              });
+                              if (_emojiVisible) {
+                                FocusScope.of(context).unfocus();
+                              }
+                            },
+                            child: Icon(
+                              _emojiVisible
+                                  ? Icons.keyboard
+                                  : Icons.sentiment_satisfied_alt,
+                              color: _emojiVisible
+                                  ? AppColors.accentBlue
+                                  : AppColors.textTertiary,
+                              size: 22,
+                            ),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -792,6 +810,8 @@ class _MessagesScreenState extends State<MessagesScreen>
                           child: TextField(
                             controller: _textController,
                             onSubmitted: (_) => _sendMessage(),
+                            maxLines: null,
+                            keyboardType: TextInputType.multiline,
                             decoration: const InputDecoration(
                               hintText: 'Message...',
                               hintStyle: TextStyle(
@@ -801,7 +821,7 @@ class _MessagesScreenState extends State<MessagesScreen>
                               ),
                               border: InputBorder.none,
                               isDense: true,
-                              contentPadding: EdgeInsets.zero,
+                              contentPadding: EdgeInsets.symmetric(vertical: 10),
                             ),
                             style: const TextStyle(
                               color: AppColors.textPrimary,
@@ -884,56 +904,6 @@ class _MessagesScreenState extends State<MessagesScreen>
     );
   }
 
-  Widget _buildEmojiPicker() {
-    return Offstage(
-      offstage: !_emojiVisible,
-      child: SafeArea(
-        top: false,
-        child: EmojiPicker(
-          textEditingController: _textController,
-          onEmojiSelected: (Category? category, Emoji emoji) {
-            setState(() {
-              _isSendButtonActive = _textController.text.trim().isNotEmpty;
-            });
-          },
-          config: Config(
-            height: 256,
-            checkPlatformCompatibility: false,
-            emojiTextStyle: GoogleFonts.notoColorEmoji(fontSize: 28),
-            emojiViewConfig: EmojiViewConfig(
-              emojiSizeMax:
-                  28 *
-                  (foundation.defaultTargetPlatform == TargetPlatform.iOS
-                      ? 1.2
-                      : 1.0),
-              columns: 7,
-              backgroundColor: AppColors.bgPrimary,
-              noRecents: const Text(
-                'Нет недавних эмодзи',
-                style: TextStyle(fontSize: 16, color: AppColors.textTertiary),
-                textAlign: TextAlign.center,
-              ),
-            ),
-            categoryViewConfig: CategoryViewConfig(
-              backgroundColor: AppColors.bgPrimary,
-              indicatorColor: AppColors.accentBlue,
-              iconColorSelected: AppColors.accentBlue,
-              iconColor: AppColors.textTertiary,
-            ),
-            bottomActionBarConfig: const BottomActionBarConfig(
-              showBackspaceButton: true,
-              showSearchViewButton: true,
-            ),
-            searchViewConfig: SearchViewConfig(
-              backgroundColor: AppColors.bgPrimary,
-              buttonIconColor: AppColors.textTertiary,
-              hintText: 'Поиск эмодзи...',
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 
   Widget _buildReplyPreview() {
     final blocState = context.read<MessagesBloc>().state;
