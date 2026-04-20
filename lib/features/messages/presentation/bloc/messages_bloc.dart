@@ -44,6 +44,7 @@ class MessagesBloc extends Bloc<MessagesEvent, MessagesState> {
     on<DeleteMessage>(_onDeleteMessage);
     on<ForwardMessages>(_onForwardMessages);
     on<SendVideoMessage>(_onSendVideoMessage);
+    on<SendFileMessage>(_onSendFileMessage);
 
     _wsSubscription = _wsService.events.listen((event) {
       add(OnWebSocketEvent(event));
@@ -574,7 +575,6 @@ class MessagesBloc extends Bloc<MessagesEvent, MessagesState> {
       if (response.statusCode == 201 || response.statusCode == 200) {
         final serverMessageRaw = MessageModel.fromJson(response.data['data']);
 
-        // Preserve localPath
         MessageModel serverMessage = serverMessageRaw;
         if (serverMessageRaw.attachedContent.isNotEmpty) {
           final newAttachments = serverMessageRaw.attachedContent.map((a) {
@@ -590,6 +590,10 @@ class MessagesBloc extends Bloc<MessagesEvent, MessagesState> {
           }).toList();
           serverMessage = serverMessageRaw.copyWith(
             attachedContent: newAttachments,
+          );
+        } else {
+          serverMessage = serverMessageRaw.copyWith(
+            attachedContent: tempMessage.attachedContent,
           );
         }
 
@@ -777,7 +781,6 @@ class MessagesBloc extends Bloc<MessagesEvent, MessagesState> {
       if (response.statusCode == 201 || response.statusCode == 200) {
         final serverMessageRaw = MessageModel.fromJson(response.data['data']);
 
-        // Preserve localPath
         MessageModel serverMessage = serverMessageRaw;
         if (serverMessageRaw.attachedContent.isNotEmpty) {
           final newAttachments = serverMessageRaw.attachedContent.map((a) {
@@ -793,6 +796,140 @@ class MessagesBloc extends Bloc<MessagesEvent, MessagesState> {
           }).toList();
           serverMessage = serverMessageRaw.copyWith(
             attachedContent: newAttachments,
+          );
+        } else {
+          serverMessage = serverMessageRaw.copyWith(
+            attachedContent: tempMessage.attachedContent,
+          );
+        }
+
+        // Update local storage with real message
+        await _localDataSource.deleteMessage(clientMessageId);
+        await _localDataSource.saveMessage(serverMessage);
+
+        if (state is MessagesLoaded) {
+          final currentStateNow = state as MessagesLoaded;
+          final finalMessages = currentStateNow.messages.map((m) {
+            return m.clientMessageId == clientMessageId ? serverMessage : m;
+          }).toList();
+          emit(currentStateNow.copyWith(messages: finalMessages));
+        }
+      }
+    } catch (e) {
+      if (state is MessagesLoaded) {
+        final currentStateNow = state as MessagesLoaded;
+        final errorMessages = currentStateNow.messages.map((m) {
+          if (m.clientMessageId == clientMessageId) {
+            final failedMsg = m.copyWith(status: MessageStatus.failed);
+            _localDataSource.saveMessage(failedMsg);
+            return failedMsg;
+          }
+          return m;
+        }).toList();
+        emit(currentStateNow.copyWith(messages: errorMessages));
+      }
+    }
+  }
+
+  Future<void> _onSendFileMessage(
+    SendFileMessage event,
+    Emitter<MessagesState> emit,
+  ) async {
+    if (state is! MessagesLoaded) return;
+    final currentState = state as MessagesLoaded;
+
+    final clientMessageId = const Uuid().v4();
+    final now = DateTime.now();
+
+    // Determine mimeType loosely based on typeContent
+    String mimeType = 'application/octet-stream';
+    if (event.typeContent == 'image') {
+      mimeType = 'image/jpeg'; // Simplification, server can infer from ext
+    } else if (event.typeContent == 'video') {
+      mimeType = 'video/mp4';
+    } else if (event.typeContent == 'voice') {
+      mimeType = 'audio/m4a';
+    }
+
+    // 1. Create optimistic message
+    final tempMessage = MessageModel(
+      id: clientMessageId,
+      chatId: event.chatId,
+      authorId: _currentUserId ?? '',
+      text: '',
+      createdAt: now,
+      updatedAt: now,
+      status: MessageStatus.sending,
+      clientMessageId: clientMessageId,
+      attachedContent: [
+        AttachedContentModel(
+          id: '',
+          fileName: event.fileName,
+          fileSize: 0,
+          accessKey: '',
+          typeContent: event.typeContent,
+          mimeType: mimeType,
+          localPath: event.filePath,
+        ),
+      ],
+    );
+
+    // Save optimistic file message locally
+    await _localDataSource.saveMessage(tempMessage);
+
+    final updatedMessages = [tempMessage, ...currentState.messages];
+    emit(currentState.copyWith(messages: updatedMessages));
+
+    try {
+      // 2. Upload to File Service
+      final file = File(event.filePath);
+      final fileSize = await file.length();
+
+      final uploadRes = await _fileService.uploadFile(event.filePath, event.fileName);
+
+      // 3. Send to Chat API
+      final response = await _dio.post(
+        '/chats/${event.chatId}/messages',
+        data: {
+          'body': '',
+          'client_message_id': clientMessageId,
+          'reply_to_message_id': event.replyToMessageId,
+          'attached_content': [
+            {
+              'type_content': event.typeContent,
+              'access_key': uploadRes.accessKey,
+              'file_name': event.fileName,
+              'file_size': fileSize,
+              'mime_type': mimeType,
+            },
+          ],
+        },
+      );
+
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        final serverMessageRaw = MessageModel.fromJson(response.data['data']);
+
+        MessageModel serverMessage = serverMessageRaw;
+        if (serverMessageRaw.attachedContent.isNotEmpty) {
+          final newAttachments = serverMessageRaw.attachedContent.map((a) {
+            return AttachedContentModel(
+              id: a.id,
+              fileName: a.fileName,
+              fileSize: a.fileSize,
+              mimeType: a.mimeType,
+              accessKey: a.accessKey,
+              typeContent: a.typeContent,
+              localPath: event.filePath,
+            );
+          }).toList();
+          serverMessage = serverMessageRaw.copyWith(
+            attachedContent: newAttachments,
+          );
+        } else {
+          // If server response surprisingly omits attached_content,
+          // preserve the temp attachments (optimistic) to keep the UI intact.
+          serverMessage = serverMessageRaw.copyWith(
+            attachedContent: tempMessage.attachedContent,
           );
         }
 

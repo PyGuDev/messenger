@@ -4,7 +4,12 @@ import 'package:flutter/foundation.dart' as foundation;
 import 'package:messenger/features/messages/presentation/widgets/persistent_emoji_picker.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-
+import 'package:file_picker/file_picker.dart';
+import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
+import '../../../../core/network/file_service.dart';
+import '../../../../core/security/token_storage.dart';
+import '../widgets/image_fullscreen_viewer.dart';
 import 'package:intl/intl.dart';
 import 'package:messenger/shared/theme/app_colors.dart';
 import 'package:messenger/features/messages/presentation/bloc/messages_bloc.dart';
@@ -265,6 +270,60 @@ class _MessagesScreenState extends State<MessagesScreen>
     _cameraService.dispose();
   }
 
+  void _showAttachmentOptions() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      backgroundColor: AppColors.bgPrimary,
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.image, color: AppColors.accentBlue),
+                title: const Text('Image', style: TextStyle(color: AppColors.textPrimary)),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final result = await FilePicker.platform.pickFiles(type: FileType.image);
+                  _handleFilePickerResult(result, 'image');
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.insert_drive_file, color: AppColors.accentBlue),
+                title: const Text('Document', style: TextStyle(color: AppColors.textPrimary)),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final result = await FilePicker.platform.pickFiles(type: FileType.any);
+                  _handleFilePickerResult(result, 'document');
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _handleFilePickerResult(FilePickerResult? result, String typeContent) {
+    if (result != null && result.files.single.path != null) {
+      context.read<MessagesBloc>().add(
+        SendFileMessage(
+          chatId: widget.chatId,
+          filePath: result.files.single.path!,
+          fileName: result.files.single.name,
+          typeContent: typeContent,
+          replyToMessageId: _replyingToMessage?.id,
+        ),
+      );
+      setState(() {
+        _replyingToMessage = null;
+      });
+    }
+  }
+
   String _formatTime(DateTime time) {
     return DateFormat.Hm().format(time); // HH:mm
   }
@@ -456,6 +515,144 @@ class _MessagesScreenState extends State<MessagesScreen>
                     .localPath,
                 isMe: isMine,
               ),
+            ] else if (message.attachedContent.any(
+              (c) => c.typeContent == 'image',
+            )) ...[
+              Builder(
+                builder: (context) {
+                  final content = message.attachedContent.firstWhere((c) => c.typeContent == 'image');
+                  final hasLocalPath = content.localPath != null && content.localPath!.isNotEmpty;
+                  final fileUrl = content.accessKey.isNotEmpty ? sl<FileService>().getDownloadUrl(content.accessKey) : null;
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: FutureBuilder<String?>(
+                          future: sl<TokenStorage>().getAccessToken(),
+                          builder: (context, snapshot) {
+                            final headers = snapshot.data != null
+                                ? {'Authorization': 'Bearer ${snapshot.data}'}
+                                : <String, String>{};
+
+                            Widget imageWidget;
+                            if (hasLocalPath) {
+                              imageWidget = Image.file(
+                                File(content.localPath!),
+                                width: 200,
+                                height: 200,
+                                fit: BoxFit.cover,
+                              );
+                            } else if (fileUrl != null) {
+                              if (snapshot.connectionState == ConnectionState.waiting) {
+                                imageWidget = Container(
+                                  width: 200,
+                                  height: 200,
+                                  color: Colors.grey[800],
+                                  child: const Center(child: CircularProgressIndicator()),
+                                );
+                              } else {
+                                imageWidget = CachedNetworkImage(
+                                  imageUrl: fileUrl,
+                                  httpHeaders: headers,
+                                  width: 200,
+                                  height: 200,
+                                  fit: BoxFit.cover,
+                                  placeholder: (context, url) => Container(
+                                    width: 200,
+                                    height: 200,
+                                    color: Colors.grey[800],
+                                    child: const Center(child: CircularProgressIndicator()),
+                                  ),
+                                  errorWidget: (context, url, error) => Container(
+                                    width: 200,
+                                    height: 200,
+                                    color: Colors.grey[800],
+                                    child: const Center(child: Icon(Icons.broken_image, color: Colors.white54)),
+                                  ),
+                                );
+                              }
+                            } else {
+                              imageWidget = Container(
+                                  width: 200,
+                                  height: 200,
+                                  color: Colors.grey[800],
+                                  child: const Center(child: Icon(Icons.image, color: Colors.white54)),
+                                );
+                            }
+
+                            return GestureDetector(
+                              onTap: () {
+                                Navigator.of(context).push(
+                                  PageRouteBuilder(
+                                    opaque: false,
+                                    pageBuilder: (context, animation, _) =>
+                                        ImageFullscreenViewer(
+                                          localFile: hasLocalPath ? File(content.localPath!) : null,
+                                          imageUrl: hasLocalPath ? null : fileUrl,
+                                          headers: headers,
+                                        ),
+                                    transitionsBuilder: (context, animation, _, child) =>
+                                        FadeTransition(opacity: animation, child: child),
+                                  ),
+                                );
+                              },
+                              child: imageWidget,
+                            );
+                          },
+                        ),
+                      ),
+                      if (message.text.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          message.text,
+                          style: TextStyle(
+                            color: isMine ? AppColors.textOnAccent : AppColors.textPrimary,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ],
+                    ],
+                  );
+                }
+              ),
+            ] else if (message.attachedContent.any(
+              (c) => c.typeContent == 'document',
+            )) ...[
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: isMine ? Colors.white.withOpacity(0.2) : Colors.grey.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                   Icon(Icons.insert_drive_file, color: isMine ? Colors.white : AppColors.accentBlue, size: 28),
+                   const SizedBox(width: 8),
+                   Flexible(
+                     child: Text(
+                       message.attachedContent.firstWhere((c) => c.typeContent == 'document').fileName,
+                       style: TextStyle(
+                         color: isMine ? AppColors.textOnAccent : AppColors.textPrimary,
+                         fontSize: 14,
+                       ),
+                       overflow: TextOverflow.ellipsis,
+                     ),
+                   ),
+                  ]
+                ),
+              ),
+              if (message.text.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  message.text,
+                  style: TextStyle(
+                    color: isMine ? AppColors.textOnAccent : AppColors.textPrimary,
+                    fontSize: 15,
+                  ),
+                ),
+              ],
             ] else
               Text(
                 message.text,
@@ -760,12 +957,15 @@ class _MessagesScreenState extends State<MessagesScreen>
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 10),
-                  child: Icon(
-                    Icons.attach_file,
-                    color: AppColors.textTertiary,
-                    size: 24,
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: GestureDetector(
+                    onTap: _showAttachmentOptions,
+                    child: const Icon(
+                      Icons.attach_file,
+                      color: AppColors.textTertiary,
+                      size: 24,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 10),
