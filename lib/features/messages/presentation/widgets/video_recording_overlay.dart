@@ -57,7 +57,7 @@ class _VideoRecordingOverlayState extends State<VideoRecordingOverlay> {
     final controller = _cameraService.controller;
 
     return Container(
-      color: Colors.black.withValues(alpha: 0.8),
+      color: Colors.black,
       child: Center(
         child: Padding(
           padding: const EdgeInsets.only(bottom: 120),
@@ -103,7 +103,7 @@ class _VideoRecordingOverlayState extends State<VideoRecordingOverlay> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                 decoration: BoxDecoration(
-                  color: const Color(0x66000000),
+                  color: Colors.black,
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Row(
@@ -145,14 +145,14 @@ class _VideoRecordingOverlayState extends State<VideoRecordingOverlay> {
                         height: 56,
                         decoration: BoxDecoration(
                           color: _cameraService.isSwitching
-                              ? const Color(0x33FF3B30)
-                              : const Color(0x80FF3B30),
+                              ? const Color(0xFF3B1A1A) // Dark red-brown instead of alpha
+                              : const Color(0xFFFF3B30),
                           borderRadius: BorderRadius.circular(28),
                         ),
                         child: Icon(
                           Icons.close,
                           color: _cameraService.isSwitching
-                              ? Colors.white.withValues(alpha: 0.3)
+                              ? Colors.grey
                               : Colors.white,
                           size: 28,
                         ),
@@ -167,7 +167,7 @@ class _VideoRecordingOverlayState extends State<VideoRecordingOverlay> {
                         height: 80,
                         decoration: BoxDecoration(
                           color: _cameraService.isSwitching
-                              ? const Color(0x33573AFE)
+                              ? const Color(0xFF1A1A3B) // Dark blue instead of alpha
                               : const Color(0xFF573AFE),
                           borderRadius: BorderRadius.circular(40),
                         ),
@@ -177,7 +177,7 @@ class _VideoRecordingOverlayState extends State<VideoRecordingOverlay> {
                             height: 24,
                             decoration: BoxDecoration(
                               color: _cameraService.isSwitching
-                                  ? Colors.white.withValues(alpha: 0.3)
+                                  ? Colors.grey
                                   : Colors.white,
                               borderRadius: BorderRadius.circular(6),
                             ),
@@ -194,14 +194,14 @@ class _VideoRecordingOverlayState extends State<VideoRecordingOverlay> {
                         height: 56,
                         decoration: BoxDecoration(
                           color: _cameraService.isSwitching
-                              ? const Color(0x33000000)
-                              : const Color(0x66000000),
+                              ? const Color(0xFF18181B)
+                              : const Color(0xFF27272A),
                           borderRadius: BorderRadius.circular(28),
                         ),
                         child: Icon(
                           Icons.flip_camera_ios,
                           color: _cameraService.isSwitching
-                              ? Colors.white.withValues(alpha: 0.3)
+                              ? Colors.grey
                               : Colors.white,
                           size: 28,
                         ),

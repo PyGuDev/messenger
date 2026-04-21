@@ -358,6 +358,33 @@ class _MessagesScreenState extends State<MessagesScreen>
     }
   }
 
+  Widget _buildMessageStatusOnImage(MessageStatus status) {
+    switch (status) {
+      case MessageStatus.sending:
+        return const Icon(
+          Icons.access_time,
+          size: 12,
+          color: Colors.white,
+        );
+      case MessageStatus.sent:
+        return const Icon(Icons.check, size: 12, color: Colors.white);
+      case MessageStatus.delivered:
+        return const Icon(
+          Icons.done_all,
+          size: 12,
+          color: Colors.white,
+        );
+      case MessageStatus.read:
+        return const Icon(Icons.done_all, size: 12, color: Colors.blueAccent);
+      case MessageStatus.failed:
+        return const Icon(
+          Icons.error_outline,
+          size: 12,
+          color: Colors.redAccent,
+        );
+    }
+  }
+
   Widget _buildMessageBubble(
     MessageModel message,
     String currentUserId,
@@ -377,8 +404,17 @@ class _MessagesScreenState extends State<MessagesScreen>
 
     final authorName = userNames[message.authorId] ?? 'User';
 
-    final hasVideo = message.attachedContent.any(
-      (c) => c.typeContent == 'video',
+    final hasVideo = message.attachedContent.any((c) => c.typeContent == 'video');
+    final hasImage = message.attachedContent.any((c) => c.typeContent == 'image');
+    final hasText = message.text.isNotEmpty;
+    final hasReplied = repliedMessage != null;
+    final hasAuthorName = !isMine && widget.isGroup;
+
+    final bubbleRadius = BorderRadius.only(
+      topLeft: const Radius.circular(16),
+      topRight: const Radius.circular(16),
+      bottomLeft: isMine ? const Radius.circular(16) : const Radius.circular(4),
+      bottomRight: isMine ? const Radius.circular(4) : const Radius.circular(16),
     );
 
     final bubble = Align(
@@ -386,27 +422,18 @@ class _MessagesScreenState extends State<MessagesScreen>
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-        padding: hasVideo
+        padding: (hasVideo || hasImage)
             ? EdgeInsets.zero
             : const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
         decoration: BoxDecoration(
           color: _highlightedMessageId == message.id
               ? AppColors.bgHighlight
-              : (hasVideo
+              : ((hasVideo || hasImage)
                     ? Colors.transparent
                     : (isMine
                           ? AppColors.bgMessageOut
                           : AppColors.bgMessageIn)),
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(16),
-            topRight: const Radius.circular(16),
-            bottomLeft: isMine
-                ? const Radius.circular(16)
-                : const Radius.circular(4),
-            bottomRight: isMine
-                ? const Radius.circular(4)
-                : const Radius.circular(16),
-          ),
+          borderRadius: bubbleRadius,
         ),
         constraints: BoxConstraints(
           maxWidth: MediaQuery.of(context).size.width * 0.75,
@@ -417,78 +444,93 @@ class _MessagesScreenState extends State<MessagesScreen>
               : CrossAxisAlignment.start,
           children: [
             if (!isMine && widget.isGroup) ...[
-              Text(
-                authorName,
-                style: const TextStyle(
-                  color: AppColors.accentBlue,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
+              Padding(
+                padding: hasImage
+                    ? const EdgeInsets.fromLTRB(14, 10, 14, 0)
+                    : EdgeInsets.zero,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      authorName,
+                      style: const TextStyle(
+                        color: AppColors.accentBlue,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                  ],
                 ),
               ),
-              const SizedBox(height: 4),
             ],
             if (repliedMessage != null) ...[
-              GestureDetector(
-                onTap: () => _scrollToMessage(repliedMessage.id),
-                child: Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0x22FFFFFF),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: IntrinsicHeight(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 3,
-                          decoration: BoxDecoration(
-                            color: isMine
-                                ? AppColors.accentBlueLight
-                                : AppColors.accentBlue,
-                            borderRadius: BorderRadius.circular(2),
+              Padding(
+                padding: hasImage
+                    ? const EdgeInsets.fromLTRB(14, 10, 14, 0)
+                    : EdgeInsets.zero,
+                child: GestureDetector(
+                  onTap: () => _scrollToMessage(repliedMessage.id),
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isMine 
+                          ? const Color(0xFF6B58FF) // Slightly lighter purple for replied box inside purple bubble
+                          : const Color(0xFFE4E4E5), // Slightly darker gray for replied box inside gray bubble
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: IntrinsicHeight(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 3,
+                            decoration: BoxDecoration(
+                              color: isMine
+                                  ? AppColors.accentBlueLight
+                                  : AppColors.accentBlue,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                userNames[repliedMessage.authorId] ?? 'User',
-                                style: TextStyle(
-                                  color: isMine
-                                      ? AppColors.accentBlueLight
-                                      : AppColors.accentBlue,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  userNames[repliedMessage.authorId] ?? 'User',
+                                  style: TextStyle(
+                                    color: isMine
+                                        ? AppColors.accentBlueLight
+                                        : AppColors.accentBlue,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                repliedMessage.text,
-                                style: TextStyle(
-                                  color: isMine
-                                      ? AppColors.textOnAccent.withValues(
-                                          alpha: 0.66,
-                                        )
-                                      : AppColors.textPrimary,
-                                  fontSize: 13,
+                                const SizedBox(height: 2),
+                                Text(
+                                  repliedMessage.text,
+                                  style: TextStyle(
+                                    color: isMine
+                                        ? AppColors.textOnAccent
+                                        : AppColors.textPrimary,
+                                    fontSize: 13,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -518,7 +560,8 @@ class _MessagesScreenState extends State<MessagesScreen>
                     .localPath,
                 isMe: isMine,
               ),
-            ] else if (message.attachedContent.any(
+            ]
+            else if (message.attachedContent.any(
               (c) => c.typeContent == 'image',
             )) ...[
               Builder(
@@ -529,89 +572,128 @@ class _MessagesScreenState extends State<MessagesScreen>
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: FutureBuilder<String?>(
-                          future: sl<TokenStorage>().getAccessToken(),
-                          builder: (context, snapshot) {
-                            final headers = snapshot.data != null
-                                ? {'Authorization': 'Bearer ${snapshot.data}'}
-                                : <String, String>{};
+                      Stack(
+                        children: [
+                          ClipRRect(
+                            borderRadius: (hasText || hasReplied || hasAuthorName)
+                                ? const BorderRadius.only(
+                                    topLeft: Radius.circular(16),
+                                    topRight: Radius.circular(16),
+                                  )
+                                : bubbleRadius,
+                            child: FutureBuilder<String?>(
+                              future: sl<TokenStorage>().getAccessToken(),
+                              builder: (context, snapshot) {
+                                final headers = snapshot.data != null
+                                    ? {'Authorization': 'Bearer ${snapshot.data}'}
+                                    : <String, String>{};
 
-                            Widget imageWidget;
-                            if (hasLocalPath) {
-                              imageWidget = Image.file(
-                                File(content.localPath!),
-                                width: 200,
-                                height: 200,
-                                fit: BoxFit.cover,
-                              );
-                            } else if (fileUrl != null) {
-                              if (snapshot.connectionState == ConnectionState.waiting) {
-                                imageWidget = Container(
-                                  width: 200,
-                                  height: 200,
-                                  color: Colors.grey[800],
-                                  child: const Center(child: CircularProgressIndicator()),
-                                );
-                              } else {
-                                imageWidget = CachedNetworkImage(
-                                  imageUrl: fileUrl,
-                                  httpHeaders: headers,
-                                  width: 200,
-                                  height: 200,
-                                  fit: BoxFit.cover,
-                                  placeholder: (context, url) => Container(
-                                    width: 200,
-                                    height: 200,
-                                    color: Colors.grey[800],
-                                    child: const Center(child: CircularProgressIndicator()),
-                                  ),
-                                  errorWidget: (context, url, error) => Container(
-                                    width: 200,
-                                    height: 200,
-                                    color: Colors.grey[800],
-                                    child: const Center(child: Icon(Icons.broken_image, color: Colors.white54)),
-                                  ),
-                                );
-                              }
-                            } else {
-                              imageWidget = Container(
-                                  width: 200,
-                                  height: 200,
-                                  color: Colors.grey[800],
-                                  child: const Center(child: Icon(Icons.image, color: Colors.white54)),
-                                );
-                            }
+                                Widget imageWidget;
+                                if (hasLocalPath) {
+                                  imageWidget = Image.file(
+                                    File(content.localPath!),
+                                    width: double.infinity,
+                                    height: 250,
+                                    fit: BoxFit.cover,
+                                  );
+                                } else if (fileUrl != null) {
+                                  if (snapshot.connectionState == ConnectionState.waiting) {
+                                    imageWidget = Container(
+                                      width: double.infinity,
+                                      height: 250,
+                                      color: Colors.grey[800],
+                                      child: const Center(child: CircularProgressIndicator()),
+                                    );
+                                  } else {
+                                    imageWidget = CachedNetworkImage(
+                                      imageUrl: fileUrl,
+                                      httpHeaders: headers,
+                                      width: double.infinity,
+                                      height: 250,
+                                      fit: BoxFit.cover,
+                                      placeholder: (context, url) => Container(
+                                        width: double.infinity,
+                                        height: 250,
+                                        color: Colors.grey[800],
+                                        child: const Center(child: CircularProgressIndicator()),
+                                      ),
+                                      errorWidget: (context, url, error) => Container(
+                                        width: double.infinity,
+                                        height: 250,
+                                        color: Colors.grey[800],
+                                        child: const Center(child: Icon(Icons.broken_image, color: Colors.white)),
+                                      ),
+                                    );
+                                  }
+                                } else {
+                                  imageWidget = Container(
+                                      width: double.infinity,
+                                      height: 250,
+                                      color: Colors.grey[800],
+                                      child: const Center(child: Icon(Icons.image, color: Colors.white)),
+                                    );
+                                }
 
-                            return GestureDetector(
-                              onTap: () {
-                                Navigator.of(context).push(
-                                  PageRouteBuilder(
-                                    opaque: false,
-                                    pageBuilder: (context, animation, _) =>
-                                        ImageFullscreenViewer(
-                                          localFile: hasLocalPath ? File(content.localPath!) : null,
-                                          imageUrl: hasLocalPath ? null : fileUrl,
-                                          headers: headers,
-                                        ),
-                                    transitionsBuilder: (context, animation, _, child) =>
-                                        FadeTransition(opacity: animation, child: child),
-                                  ),
+                                return GestureDetector(
+                                  onTap: () {
+                                    Navigator.of(context).push(
+                                      PageRouteBuilder(
+                                        opaque: false,
+                                        pageBuilder: (context, animation, _) =>
+                                            ImageFullscreenViewer(
+                                              localFile: hasLocalPath ? File(content.localPath!) : null,
+                                              imageUrl: hasLocalPath ? null : fileUrl,
+                                              headers: headers,
+                                            ),
+                                        transitionsBuilder: (context, animation, _, child) =>
+                                            FadeTransition(opacity: animation, child: child),
+                                      ),
+                                    );
+                                  },
+                                  child: imageWidget,
                                 );
                               },
-                              child: imageWidget,
-                            );
-                          },
-                        ),
+                            ),
+                          ),
+                          if (!hasText)
+                            Positioned(
+                              bottom: 8,
+                              right: 8,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.black,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      _formatTime(message.createdAt),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                      ),
+                                    ),
+                                    if (isMine) ...[
+                                      const SizedBox(width: 4),
+                                      _buildMessageStatusOnImage(message.status),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                       if (message.text.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          message.text,
-                          style: TextStyle(
-                            color: isMine ? AppColors.textOnAccent : AppColors.textPrimary,
-                            fontSize: 15,
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
+                          child: Text(
+                            message.text,
+                            style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 15,
+                            ),
                           ),
                         ),
                       ],
@@ -619,7 +701,8 @@ class _MessagesScreenState extends State<MessagesScreen>
                   );
                 }
               ),
-            ] else if (message.attachedContent.any(
+            ]
+ else if (message.attachedContent.any(
               (c) => c.typeContent == 'document',
             )) ...[
               _DocumentBubble(
@@ -647,52 +730,62 @@ class _MessagesScreenState extends State<MessagesScreen>
                 ),
               ),
             const SizedBox(height: 4),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  _formatTime(message.createdAt),
-                  style: TextStyle(
-                    color: isMine
-                        ? AppColors.textOnAccent.withValues(alpha: 0.7)
-                        : AppColors.textSecondary,
-                    fontSize: 10,
-                  ),
-                ),
-                if (isMine) ...[
-                  const SizedBox(width: 4),
-                  if (message.status == MessageStatus.failed)
-                    GestureDetector(
-                      onTap: () {
-                        context.read<MessagesBloc>().add(
-                          ResendMessage(
-                            chatId: widget.chatId,
-                            clientMessageId: message.clientMessageId ?? '',
-                          ),
-                        );
-                      },
-                      child: const Row(
-                        children: [
-                          Icon(
-                            Icons.refresh,
-                            size: 12,
-                            color: Colors.redAccent,
-                          ),
-                          Text(
-                            'Retry',
-                            style: TextStyle(
-                              color: Colors.redAccent,
-                              fontSize: 10,
-                            ),
-                          ),
-                        ],
+            if (hasImage && !hasText)
+              const SizedBox.shrink()
+            else
+              Padding(
+                padding: hasImage
+                    ? const EdgeInsets.fromLTRB(14, 0, 14, 10)
+                    : EdgeInsets.zero,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _formatTime(message.createdAt),
+                      style: TextStyle(
+                        color: (hasImage && !hasText)
+                            ? Colors.white
+                            : (isMine 
+                                ? (hasImage ? AppColors.textPrimary : AppColors.textOnAccent)
+                                : AppColors.textSecondary),
+                        fontSize: 10,
                       ),
-                    )
-                  else
-                    _buildMessageStatus(message.status),
-                ],
-              ],
-            ),
+                    ),
+                    if (isMine) ...[
+                      const SizedBox(width: 4),
+                      if (message.status == MessageStatus.failed)
+                        GestureDetector(
+                          onTap: () {
+                            context.read<MessagesBloc>().add(
+                              ResendMessage(
+                                chatId: widget.chatId,
+                                clientMessageId: message.clientMessageId ?? '',
+                              ),
+                            );
+                          },
+                          child: const Row(
+                            children: [
+                              Icon(
+                                Icons.refresh,
+                                size: 12,
+                                color: Colors.redAccent,
+                              ),
+                              Text(
+                                'Retry',
+                                style: TextStyle(
+                                  color: Colors.redAccent,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      else
+                        _buildMessageStatus(message.status),
+                    ],
+                  ],
+                ),
+              ),
           ],
         ),
       ),
@@ -1224,7 +1317,7 @@ class _DocumentBubbleState extends State<_DocumentBubble> {
       child: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: isMine ? Colors.white.withValues(alpha: 0.2) : Colors.grey.withValues(alpha: 0.1),
+          color: isMine ? const Color(0xFF6B58FF) : const Color(0xFFE4E4E5),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
@@ -1256,24 +1349,22 @@ class _DocumentBubbleState extends State<_DocumentBubble> {
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
-                  if (_isLoading)
-                    Text(
-                      'Загрузка...',
-                      style: TextStyle(
-                        color: (isMine ? AppColors.textOnAccent : AppColors.textPrimary)
-                            .withValues(alpha: 0.6),
-                        fontSize: 11,
+                    if (_isLoading)
+                      Text(
+                        'Загрузка...',
+                        style: TextStyle(
+                          color: isMine ? AppColors.textOnAccent : AppColors.textSecondary,
+                          fontSize: 11,
+                        ),
+                      )
+                    else
+                      Text(
+                        'Нажмите, чтобы открыть',
+                        style: TextStyle(
+                          color: isMine ? AppColors.textOnAccent : AppColors.textSecondary,
+                          fontSize: 11,
+                        ),
                       ),
-                    )
-                  else
-                    Text(
-                      'Нажмите, чтобы открыть',
-                      style: TextStyle(
-                        color: (isMine ? AppColors.textOnAccent : AppColors.textPrimary)
-                            .withValues(alpha: 0.6),
-                        fontSize: 11,
-                      ),
-                    ),
                 ],
               ),
             ),

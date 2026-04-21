@@ -194,8 +194,8 @@ class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
   Widget build(BuildContext context) {
     final color = widget.isMe ? AppColors.textOnAccent : AppColors.textPrimary;
     final secondaryColor = widget.isMe
-        ? AppColors.textOnAccent.withValues(alpha: 0.7)
-        : AppColors.textTertiary;
+        ? AppColors.textOnAccent
+        : AppColors.textSecondary;
 
     return Container(
       width: 220,
@@ -248,7 +248,7 @@ class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
                       overlayRadius: 10,
                     ),
                     activeTrackColor: color,
-                    inactiveTrackColor: color.withValues(alpha: 0.3),
+                    inactiveTrackColor: widget.isMe ? const Color(0xFF8B7AFF) : Colors.grey[300],
                     thumbColor: color,
                   ),
                   child: Slider(

@@ -219,7 +219,7 @@ class _VideoMessageBubbleState extends State<VideoMessageBubble> {
                   width: 48,
                   height: 48,
                   decoration: const BoxDecoration(
-                    color: Colors.black54,
+                    color: Colors.black,
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
