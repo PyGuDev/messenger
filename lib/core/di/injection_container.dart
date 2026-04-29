@@ -2,12 +2,15 @@ import 'package:get_it/get_it.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../security/token_storage.dart';
 import '../network/network_module.dart';
+import '../network/runtime_environment_profile.dart';
+import '../network/configuration_error_state.dart';
 import '../network/user_service.dart';
 import 'package:dio/dio.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/profile/presentation/bloc/profile_bloc.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import '../../features/chats/presentation/bloc/chats_bloc.dart';
+import '../../features/chats/presentation/bloc/contact_chat_launch_bloc.dart';
 import '../../features/messages/presentation/bloc/messages_bloc.dart';
 import '../../features/network/presentation/bloc/network_bloc.dart';
 import '../network/websocket_service.dart';
@@ -18,6 +21,7 @@ import '../network/camera_service.dart';
 import '../../features/auth/presentation/bloc/auth_event.dart';
 import '../../features/messages/data/datasources/messages_local_data_source.dart';
 import '../../features/chats/data/datasources/chats_local_data_source.dart';
+import '../local/database_provider.dart';
 import '../local/database_helper.dart';
 import '../cache/media_cache_service.dart';
 
@@ -25,7 +29,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 final sl = GetIt.instance; // sl stands for Service Locator
 
-Future<void> init() async {
+Future<ConfigurationErrorState?> init() async {
   // External
   final sharedPreferences = await SharedPreferences.getInstance();
   sl.registerLazySingleton(() => sharedPreferences);
@@ -36,15 +40,27 @@ Future<void> init() async {
   sl.registerLazySingleton<TokenStorage>(() => TokenStorageImpl(sl()));
   sl.registerLazySingleton<NetworkInfo>(() => NetworkInfoImpl(sl()));
   sl.registerLazySingleton<DatabaseHelper>(() => DatabaseHelper());
+  sl.registerLazySingleton<DatabaseProvider>(() => sl<DatabaseHelper>());
+
+  final environmentProfile = RuntimeEnvironmentProfile.fromEnvironment();
+  final configurationError = environmentProfile.validate();
+  sl.registerLazySingleton(() => environmentProfile);
+
+  if (configurationError != null) {
+    sl.registerLazySingleton(() => configurationError);
+    return configurationError;
+  }
 
   // Network
   sl.registerLazySingleton<Dio>(
-    () => Dio(BaseOptions(baseUrl: NetworkModule.authBaseUrl)),
+    () =>
+        Dio(BaseOptions(baseUrl: sl<RuntimeEnvironmentProfile>().authBaseUrl)),
     instanceName: 'internalDio',
   );
 
   sl.registerLazySingleton<Dio>(
     () => NetworkModule.createAuthDio(
+      sl<RuntimeEnvironmentProfile>(),
       sl(),
       sl(instanceName: 'internalDio'),
       onTokenExpired: () => sl<AuthBloc>().add(LogoutRequested()),
@@ -54,6 +70,7 @@ Future<void> init() async {
 
   sl.registerLazySingleton<Dio>(
     () => NetworkModule.createChatDio(
+      sl<RuntimeEnvironmentProfile>(),
       sl(),
       sl(instanceName: 'internalDio'),
       onTokenExpired: () => sl<AuthBloc>().add(LogoutRequested()),
@@ -63,6 +80,7 @@ Future<void> init() async {
 
   sl.registerLazySingleton<Dio>(
     () => NetworkModule.createFileDio(
+      sl<RuntimeEnvironmentProfile>(),
       sl(),
       sl(instanceName: 'internalDio'),
       onTokenExpired: () => sl<AuthBloc>().add(LogoutRequested()),
@@ -71,7 +89,11 @@ Future<void> init() async {
   );
 
   sl.registerLazySingleton<WebSocketService>(
-    () => WebSocketService(sl<TokenStorage>(), sl<NetworkInfo>()),
+    () => WebSocketService(
+      sl<TokenStorage>(),
+      sl<NetworkInfo>(),
+      sl<RuntimeEnvironmentProfile>(),
+    ),
   );
 
   // Services
@@ -79,7 +101,7 @@ Future<void> init() async {
     () => UserService(sl<Dio>(instanceName: 'authDio')),
   );
   sl.registerLazySingleton<FileService>(
-    () => FileService(sl<Dio>(instanceName: 'fileDio')),
+    () => FileService(sl<Dio>(instanceName: 'fileDio'), sl()),
   );
   sl.registerLazySingleton<VoiceRecorderService>(() => VoiceRecorderService());
   sl.registerLazySingleton<CameraService>(() => CameraService());
@@ -110,9 +132,16 @@ Future<void> init() async {
       sl<ChatsLocalDataSource>(),
     ),
   );
+  sl.registerFactory<ContactChatLaunchBloc>(
+    () => ContactChatLaunchBloc(
+      sl<Dio>(instanceName: 'chatDio'),
+      sl<ChatsBloc>(),
+    ),
+  );
   sl.registerFactory<MessagesBloc>(
     () => MessagesBloc(
       sl(instanceName: 'chatDio'),
+      sl(),
       sl(),
       sl(),
       sl<UserService>(),
@@ -120,4 +149,6 @@ Future<void> init() async {
       sl<MessagesLocalDataSource>(),
     ),
   );
+
+  return null;
 }

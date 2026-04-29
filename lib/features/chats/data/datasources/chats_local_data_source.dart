@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import '../models/chat_model.dart';
-import '../../../../core/local/database_helper.dart';
+import '../../../../core/local/database_provider.dart';
 
 abstract class ChatsLocalDataSource {
   Future<List<ChatModel>> getChats();
@@ -12,7 +12,7 @@ abstract class ChatsLocalDataSource {
 }
 
 class ChatsLocalDataSourceImpl implements ChatsLocalDataSource {
-  final DatabaseHelper dbHelper;
+  final DatabaseProvider dbHelper;
 
   ChatsLocalDataSourceImpl(this.dbHelper);
 
@@ -46,7 +46,7 @@ class ChatsLocalDataSourceImpl implements ChatsLocalDataSource {
   @override
   Future<void> saveChats(List<ChatModel> chats) async {
     if (chats.isEmpty) return;
-    
+
     final db = await dbHelper.database;
     final batch = db.batch();
     for (var chat in chats) {
@@ -72,11 +72,7 @@ class ChatsLocalDataSourceImpl implements ChatsLocalDataSource {
   @override
   Future<void> deleteChat(String chatId) async {
     final db = await dbHelper.database;
-    await db.delete(
-      'chats',
-      where: 'id = ?',
-      whereArgs: [chatId],
-    );
+    await db.delete('chats', where: 'id = ?', whereArgs: [chatId]);
   }
 
   @override
@@ -91,11 +87,15 @@ class ChatsLocalDataSourceImpl implements ChatsLocalDataSource {
       'type': chat.type,
       'title': chat.title,
       'members': jsonEncode(
-        chat.members.map((e) => {
-          'user_id': e.userId,
-          'role': e.role,
-          'added_at': e.addedAt.toIso8601String(),
-        }).toList(),
+        chat.members
+            .map(
+              (e) => {
+                'user_id': e.userId,
+                'role': e.role,
+                'added_at': e.addedAt.toIso8601String(),
+              },
+            )
+            .toList(),
       ),
       'last_message': chat.lastMessage != null
           ? jsonEncode({

@@ -12,6 +12,15 @@ class MessagesInitial extends MessagesState {}
 
 class MessagesLoading extends MessagesState {}
 
+class MessagesOfflineUnavailable extends MessagesState {
+  final String chatId;
+
+  const MessagesOfflineUnavailable(this.chatId);
+
+  @override
+  List<Object?> get props => [chatId];
+}
+
 class MessagesLoaded extends MessagesState {
   final String chatId;
   final List<MessageModel> messages;
@@ -44,7 +53,13 @@ class MessagesLoaded extends MessagesState {
   }
 
   @override
-  List<Object?> get props => [chatId, messages, hasReachedMax, currentUserId, userNames];
+  List<Object?> get props => [
+    chatId,
+    messages,
+    hasReachedMax,
+    currentUserId,
+    userNames,
+  ];
 }
 
 class MessagesError extends MessagesState {

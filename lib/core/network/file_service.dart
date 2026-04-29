@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
-import 'network_module.dart';
+import 'runtime_environment_profile.dart';
 
 class UploadResponse {
   final String accessKey;
@@ -24,8 +24,9 @@ class UploadResponse {
 
 class FileService {
   final Dio _dio;
+  final RuntimeEnvironmentProfile _profile;
 
-  FileService(this._dio);
+  FileService(this._dio, this._profile);
 
   Future<UploadResponse> uploadFile(String filePath, String fileName) async {
     final file = File(filePath);
@@ -47,6 +48,6 @@ class FileService {
   }
 
   String getDownloadUrl(String accessKey) {
-    return '${NetworkModule.fileBaseUrl}/files/$accessKey';
+    return '${_profile.fileBaseUrl}/files/$accessKey';
   }
 }

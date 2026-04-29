@@ -3,33 +3,35 @@ import 'dart:convert';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../security/token_storage.dart';
-import '../network/network_module.dart';
 import 'network_info.dart';
 import 'package:flutter/foundation.dart';
+import 'runtime_environment_profile.dart';
 
 enum WebSocketStatus { connected, disconnected, connecting }
 
 class WebSocketService {
   final TokenStorage _tokenStorage;
   final NetworkInfo _networkInfo;
-  final String _baseUrl = NetworkModule.wsBaseUrl;
+  final RuntimeEnvironmentProfile _profile;
 
   WebSocketChannel? _channel;
   StreamController<Map<String, dynamic>>? _eventController;
   StreamController<WebSocketStatus>? _statusController;
-  
+
   Timer? _reconnectTimer;
   int _reconnectAttempts = 0;
   bool _shouldReconnect = false;
   StreamSubscription? _networkSubscription;
 
-  WebSocketService(this._tokenStorage, this._networkInfo) {
+  WebSocketService(this._tokenStorage, this._networkInfo, this._profile) {
     _eventController = StreamController<Map<String, dynamic>>.broadcast();
     _statusController = StreamController<WebSocketStatus>.broadcast();
-    
+
     _networkSubscription = _networkInfo.onConnectivityChanged.listen((results) {
       final isConnected = !results.contains(ConnectivityResult.none);
-      if (isConnected && _shouldReconnect && (_channel == null || _channel?.sink == null)) {
+      if (isConnected &&
+          _shouldReconnect &&
+          (_channel == null || _channel?.sink == null)) {
         _reconnectAttempts = 0;
         _establishConnection();
       }
@@ -40,7 +42,7 @@ class WebSocketService {
   Stream<WebSocketStatus> get status => _statusController!.stream;
 
   Future<void> connect() async {
-    debugPrint('WebSocket connect() called');
+    _log('connect requested');
     _shouldReconnect = true;
     await _establishConnection();
   }
@@ -48,28 +50,26 @@ class WebSocketService {
   Future<void> _establishConnection() async {
     final isConnected = await _networkInfo.isConnected;
     if (!isConnected) {
-      debugPrint('WebSocket connection aborted: _networkInfo.isConnected is false');
-      // On some platforms (macOS/iOS simulator), connectivity_plus can falsely claim 'none'. Let's bypass the hard block for testing.
-      debugPrint('Bypassing network check just in case...');
+      _log('network unavailable, postponing websocket connection');
     }
 
     final token = await _tokenStorage.getAccessToken();
     if (token == null) {
-      debugPrint('WebSocket connection aborted: token is null');
+      _log('connection aborted because access token is missing');
       _statusController?.add(WebSocketStatus.disconnected);
       return;
     }
 
     _statusController?.add(WebSocketStatus.connecting);
-    final uri = Uri.parse('$_baseUrl?token=${token.trim()}');
+    final uri = Uri.parse('${_profile.wsBaseUrl}?token=${token.trim()}');
 
     try {
       _channel = WebSocketChannel.connect(uri);
-      debugPrint('WebSocket connecting to: $uri');
-      
+      _log('connecting to ${uri.toString()}');
+
       _channel!.stream.listen(
         (data) {
-          debugPrint('WebSocket received data: $data');
+          _log('received event payload');
           _reconnectAttempts = 0;
           _statusController?.add(WebSocketStatus.connected);
           try {
@@ -80,16 +80,16 @@ class WebSocketService {
           }
         },
         onDone: () {
-          debugPrint('WebSocket closed');
+          _log('connection closed');
           _handleDisconnection();
         },
         onError: (e) {
-          debugPrint('WebSocket error: $e');
+          _log('connection error: $e');
           _handleDisconnection();
         },
       );
     } catch (e) {
-      debugPrint('WebSocket catch error: $e');
+      _log('connection failed: $e');
       _handleDisconnection();
     }
   }
@@ -139,5 +139,11 @@ class WebSocketService {
     _networkSubscription?.cancel();
     _eventController?.close();
     _statusController?.close();
+  }
+
+  void _log(String message) {
+    if (kDebugMode) {
+      debugPrint('[WebSocketService] $message');
+    }
   }
 }

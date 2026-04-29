@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:dio/dio.dart';
 import 'package:uuid/uuid.dart';
 import 'package:messenger/core/network/file_service.dart';
+import 'package:messenger/core/network/network_info.dart';
 import '../../../../core/network/websocket_service.dart';
 import '../../../../core/network/user_service.dart';
 import '../../../../core/network/api_exception.dart';
@@ -18,6 +19,7 @@ class MessagesBloc extends Bloc<MessagesEvent, MessagesState> {
   final Dio _dio;
   final WebSocketService _wsService;
   final TokenStorage _tokenStorage;
+  final NetworkInfo _networkInfo;
   final UserService _userService;
   final FileService _fileService;
   final MessagesLocalDataSource _localDataSource;
@@ -29,6 +31,7 @@ class MessagesBloc extends Bloc<MessagesEvent, MessagesState> {
     this._dio,
     this._wsService,
     this._tokenStorage,
+    this._networkInfo,
     this._userService,
     this._fileService,
     this._localDataSource,
@@ -55,6 +58,28 @@ class MessagesBloc extends Bloc<MessagesEvent, MessagesState> {
   Future<void> close() {
     _wsSubscription?.cancel();
     return super.close();
+  }
+
+  List<MessageModel> _reconcileMessages(
+    String chatId,
+    List<MessageModel> incomingMessages,
+  ) {
+    final byIdentity = <String, MessageModel>{};
+    for (final message in incomingMessages.where(
+      (item) => item.chatId == chatId,
+    )) {
+      final identity = message.clientMessageId?.isNotEmpty == true
+          ? 'client:${message.clientMessageId}'
+          : 'server:${message.id}';
+      final existing = byIdentity[identity];
+      if (existing == null || message.updatedAt.isAfter(existing.updatedAt)) {
+        byIdentity[identity] = message;
+      }
+    }
+
+    final messages = byIdentity.values.toList()
+      ..sort((left, right) => right.createdAt.compareTo(left.createdAt));
+    return messages;
   }
 
   /// Get the current user ID — first try TokenStorage, then extract from JWT.
@@ -123,6 +148,15 @@ class MessagesBloc extends Bloc<MessagesEvent, MessagesState> {
 
     // 2. Fetch from network and update cache
     try {
+      final isConnected = await _networkInfo.isConnected;
+      if (!isConnected) {
+        final cachedMessages = await _localDataSource.getMessages(event.chatId);
+        if (cachedMessages.isEmpty) {
+          emit(MessagesOfflineUnavailable(event.chatId));
+        }
+        return;
+      }
+
       await _getCurrentUserId();
 
       final response = await _dio.get(
@@ -139,18 +173,20 @@ class MessagesBloc extends Bloc<MessagesEvent, MessagesState> {
       final messages = messagesData
           .map((json) => MessageModel.fromJson(json))
           .toList();
+      final reconciledMessages = _reconcileMessages(event.chatId, messages);
 
       // Persist to local storage
-      if (messages.isNotEmpty) {
-        await _localDataSource.saveMessages(messages);
-      }
+      await _localDataSource.replaceMessagesForChat(
+        event.chatId,
+        reconciledMessages,
+      );
 
-      final userNames = await _resolveUserNames(messages, {});
+      final userNames = await _resolveUserNames(reconciledMessages, {});
 
       emit(
         MessagesLoaded(
           chatId: event.chatId,
-          messages: messages,
+          messages: reconciledMessages,
           currentUserId: _currentUserId ?? '',
           hasReachedMax: messagesData.length < 50,
           userNames: userNames,
@@ -158,7 +194,12 @@ class MessagesBloc extends Bloc<MessagesEvent, MessagesState> {
       );
     } catch (e) {
       if (state is! MessagesLoaded) {
-        emit(MessagesError(e.toString()));
+        final cachedMessages = await _localDataSource.getMessages(event.chatId);
+        if (cachedMessages.isEmpty) {
+          emit(MessagesOfflineUnavailable(event.chatId));
+        } else {
+          emit(MessagesError(e.toString()));
+        }
       }
     }
   }
@@ -404,8 +445,9 @@ class MessagesBloc extends Bloc<MessagesEvent, MessagesState> {
         final upToStr = payload['read_up_to']?.toString();
 
         final currentChatId = currentState.chatId;
-        if (chatId == null || upToStr == null || currentChatId != chatId)
+        if (chatId == null || upToStr == null || currentChatId != chatId) {
           return;
+        }
 
         DateTime? upTo = DateTime.tryParse(upToStr);
         if (upTo == null) return;
@@ -456,8 +498,9 @@ class MessagesBloc extends Bloc<MessagesEvent, MessagesState> {
 
         if (chatId == null ||
             messageId == null ||
-            currentState.chatId != chatId)
+            currentState.chatId != chatId) {
           return;
+        }
 
         MessageStatus newStatus = MessageStatus.sent;
         if (statusRaw is int) {
@@ -708,7 +751,9 @@ class MessagesBloc extends Bloc<MessagesEvent, MessagesState> {
         final updatedMessages = List<MessageModel>.from(currentState.messages)
           ..insertAll(0, newMessages);
         emit(currentState.copyWith(messages: updatedMessages));
-      } catch (e) {}
+      } catch (e) {
+        import_foundation.debugPrint('Forward messages failed: $e');
+      }
     }
   }
 
@@ -885,7 +930,10 @@ class MessagesBloc extends Bloc<MessagesEvent, MessagesState> {
       final file = File(event.filePath);
       final fileSize = await file.length();
 
-      final uploadRes = await _fileService.uploadFile(event.filePath, event.fileName);
+      final uploadRes = await _fileService.uploadFile(
+        event.filePath,
+        event.fileName,
+      );
 
       // 3. Send to Chat API
       final response = await _dio.post(

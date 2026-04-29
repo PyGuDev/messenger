@@ -1,13 +1,15 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import 'database_provider.dart';
 
-class DatabaseHelper {
+class DatabaseHelper implements DatabaseProvider {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
   factory DatabaseHelper() => _instance;
   DatabaseHelper._internal();
 
   Database? _database;
 
+  @override
   Future<Database> get database async {
     if (_database != null) return _database!;
     _database = await _initDatabase();

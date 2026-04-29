@@ -287,19 +287,32 @@ class _MessagesScreenState extends State<MessagesScreen>
             children: [
               ListTile(
                 leading: const Icon(Icons.image, color: AppColors.accentBlue),
-                title: const Text('Image', style: TextStyle(color: AppColors.textPrimary)),
+                title: const Text(
+                  'Image',
+                  style: TextStyle(color: AppColors.textPrimary),
+                ),
                 onTap: () async {
                   Navigator.pop(context);
-                  final result = await FilePicker.platform.pickFiles(type: FileType.image);
+                  final result = await FilePicker.platform.pickFiles(
+                    type: FileType.image,
+                  );
                   _handleFilePickerResult(result, 'image');
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.insert_drive_file, color: AppColors.accentBlue),
-                title: const Text('Document', style: TextStyle(color: AppColors.textPrimary)),
+                leading: const Icon(
+                  Icons.insert_drive_file,
+                  color: AppColors.accentBlue,
+                ),
+                title: const Text(
+                  'Document',
+                  style: TextStyle(color: AppColors.textPrimary),
+                ),
                 onTap: () async {
                   Navigator.pop(context);
-                  final result = await FilePicker.platform.pickFiles(type: FileType.any);
+                  final result = await FilePicker.platform.pickFiles(
+                    type: FileType.any,
+                  );
                   _handleFilePickerResult(result, 'document');
                 },
               ),
@@ -361,19 +374,11 @@ class _MessagesScreenState extends State<MessagesScreen>
   Widget _buildMessageStatusOnImage(MessageStatus status) {
     switch (status) {
       case MessageStatus.sending:
-        return const Icon(
-          Icons.access_time,
-          size: 12,
-          color: Colors.white,
-        );
+        return const Icon(Icons.access_time, size: 12, color: Colors.white);
       case MessageStatus.sent:
         return const Icon(Icons.check, size: 12, color: Colors.white);
       case MessageStatus.delivered:
-        return const Icon(
-          Icons.done_all,
-          size: 12,
-          color: Colors.white,
-        );
+        return const Icon(Icons.done_all, size: 12, color: Colors.white);
       case MessageStatus.read:
         return const Icon(Icons.done_all, size: 12, color: Colors.blueAccent);
       case MessageStatus.failed:
@@ -404,8 +409,12 @@ class _MessagesScreenState extends State<MessagesScreen>
 
     final authorName = userNames[message.authorId] ?? 'User';
 
-    final hasVideo = message.attachedContent.any((c) => c.typeContent == 'video');
-    final hasImage = message.attachedContent.any((c) => c.typeContent == 'image');
+    final hasVideo = message.attachedContent.any(
+      (c) => c.typeContent == 'video',
+    );
+    final hasImage = message.attachedContent.any(
+      (c) => c.typeContent == 'image',
+    );
     final hasText = message.text.isNotEmpty;
     final hasReplied = repliedMessage != null;
     final hasAuthorName = !isMine && widget.isGroup;
@@ -414,7 +423,9 @@ class _MessagesScreenState extends State<MessagesScreen>
       topLeft: const Radius.circular(16),
       topRight: const Radius.circular(16),
       bottomLeft: isMine ? const Radius.circular(16) : const Radius.circular(4),
-      bottomRight: isMine ? const Radius.circular(4) : const Radius.circular(16),
+      bottomRight: isMine
+          ? const Radius.circular(4)
+          : const Radius.circular(16),
     );
 
     final bubble = Align(
@@ -478,9 +489,13 @@ class _MessagesScreenState extends State<MessagesScreen>
                       vertical: 8,
                     ),
                     decoration: BoxDecoration(
-                      color: isMine 
-                          ? const Color(0xFF6B58FF) // Slightly lighter purple for replied box inside purple bubble
-                          : const Color(0xFFE4E4E5), // Slightly darker gray for replied box inside gray bubble
+                      color: isMine
+                          ? const Color(
+                              0xFF6B58FF,
+                            ) // Slightly lighter purple for replied box inside purple bubble
+                          : const Color(
+                              0xFFE4E4E5,
+                            ), // Slightly darker gray for replied box inside gray bubble
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: IntrinsicHeight(
@@ -560,22 +575,28 @@ class _MessagesScreenState extends State<MessagesScreen>
                     .localPath,
                 isMe: isMine,
               ),
-            ]
-            else if (message.attachedContent.any(
+            ] else if (message.attachedContent.any(
               (c) => c.typeContent == 'image',
             )) ...[
               Builder(
                 builder: (context) {
-                  final content = message.attachedContent.firstWhere((c) => c.typeContent == 'image');
-                  final hasLocalPath = content.localPath != null && content.localPath!.isNotEmpty;
-                  final fileUrl = content.accessKey.isNotEmpty ? sl<FileService>().getDownloadUrl(content.accessKey) : null;
+                  final content = message.attachedContent.firstWhere(
+                    (c) => c.typeContent == 'image',
+                  );
+                  final hasLocalPath =
+                      content.localPath != null &&
+                      content.localPath!.isNotEmpty;
+                  final fileUrl = content.accessKey.isNotEmpty
+                      ? sl<FileService>().getDownloadUrl(content.accessKey)
+                      : null;
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Stack(
                         children: [
                           ClipRRect(
-                            borderRadius: (hasText || hasReplied || hasAuthorName)
+                            borderRadius:
+                                (hasText || hasReplied || hasAuthorName)
                                 ? const BorderRadius.only(
                                     topLeft: Radius.circular(16),
                                     topRight: Radius.circular(16),
@@ -585,7 +606,10 @@ class _MessagesScreenState extends State<MessagesScreen>
                               future: sl<TokenStorage>().getAccessToken(),
                               builder: (context, snapshot) {
                                 final headers = snapshot.data != null
-                                    ? {'Authorization': 'Bearer ${snapshot.data}'}
+                                    ? {
+                                        'Authorization':
+                                            'Bearer ${snapshot.data}',
+                                      }
                                     : <String, String>{};
 
                                 Widget imageWidget;
@@ -597,12 +621,15 @@ class _MessagesScreenState extends State<MessagesScreen>
                                     fit: BoxFit.cover,
                                   );
                                 } else if (fileUrl != null) {
-                                  if (snapshot.connectionState == ConnectionState.waiting) {
+                                  if (snapshot.connectionState ==
+                                      ConnectionState.waiting) {
                                     imageWidget = Container(
                                       width: double.infinity,
                                       height: 250,
                                       color: Colors.grey[800],
-                                      child: const Center(child: CircularProgressIndicator()),
+                                      child: const Center(
+                                        child: CircularProgressIndicator(),
+                                      ),
                                     );
                                   } else {
                                     imageWidget = CachedNetworkImage(
@@ -615,23 +642,36 @@ class _MessagesScreenState extends State<MessagesScreen>
                                         width: double.infinity,
                                         height: 250,
                                         color: Colors.grey[800],
-                                        child: const Center(child: CircularProgressIndicator()),
+                                        child: const Center(
+                                          child: CircularProgressIndicator(),
+                                        ),
                                       ),
-                                      errorWidget: (context, url, error) => Container(
-                                        width: double.infinity,
-                                        height: 250,
-                                        color: Colors.grey[800],
-                                        child: const Center(child: Icon(Icons.broken_image, color: Colors.white)),
-                                      ),
+                                      errorWidget: (context, url, error) =>
+                                          Container(
+                                            width: double.infinity,
+                                            height: 250,
+                                            color: Colors.grey[800],
+                                            child: const Center(
+                                              child: Icon(
+                                                Icons.broken_image,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                          ),
                                     );
                                   }
                                 } else {
                                   imageWidget = Container(
-                                      width: double.infinity,
-                                      height: 250,
-                                      color: Colors.grey[800],
-                                      child: const Center(child: Icon(Icons.image, color: Colors.white)),
-                                    );
+                                    width: double.infinity,
+                                    height: 250,
+                                    color: Colors.grey[800],
+                                    child: const Center(
+                                      child: Icon(
+                                        Icons.image,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  );
                                 }
 
                                 return GestureDetector(
@@ -641,12 +681,20 @@ class _MessagesScreenState extends State<MessagesScreen>
                                         opaque: false,
                                         pageBuilder: (context, animation, _) =>
                                             ImageFullscreenViewer(
-                                              localFile: hasLocalPath ? File(content.localPath!) : null,
-                                              imageUrl: hasLocalPath ? null : fileUrl,
+                                              localFile: hasLocalPath
+                                                  ? File(content.localPath!)
+                                                  : null,
+                                              imageUrl: hasLocalPath
+                                                  ? null
+                                                  : fileUrl,
                                               headers: headers,
                                             ),
-                                        transitionsBuilder: (context, animation, _, child) =>
-                                            FadeTransition(opacity: animation, child: child),
+                                        transitionsBuilder:
+                                            (context, animation, _, child) =>
+                                                FadeTransition(
+                                                  opacity: animation,
+                                                  child: child,
+                                                ),
                                       ),
                                     );
                                   },
@@ -660,7 +708,10 @@ class _MessagesScreenState extends State<MessagesScreen>
                               bottom: 8,
                               right: 8,
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
                                 decoration: BoxDecoration(
                                   color: Colors.black,
                                   borderRadius: BorderRadius.circular(10),
@@ -677,7 +728,9 @@ class _MessagesScreenState extends State<MessagesScreen>
                                     ),
                                     if (isMine) ...[
                                       const SizedBox(width: 4),
-                                      _buildMessageStatusOnImage(message.status),
+                                      _buildMessageStatusOnImage(
+                                        message.status,
+                                      ),
                                     ],
                                   ],
                                 ),
@@ -699,14 +752,15 @@ class _MessagesScreenState extends State<MessagesScreen>
                       ],
                     ],
                   );
-                }
+                },
               ),
-            ]
- else if (message.attachedContent.any(
+            ] else if (message.attachedContent.any(
               (c) => c.typeContent == 'document',
             )) ...[
               _DocumentBubble(
-                content: message.attachedContent.firstWhere((c) => c.typeContent == 'document'),
+                content: message.attachedContent.firstWhere(
+                  (c) => c.typeContent == 'document',
+                ),
                 isMine: isMine,
               ),
               if (message.text.isNotEmpty) ...[
@@ -714,7 +768,9 @@ class _MessagesScreenState extends State<MessagesScreen>
                 Text(
                   message.text,
                   style: TextStyle(
-                    color: isMine ? AppColors.textOnAccent : AppColors.textPrimary,
+                    color: isMine
+                        ? AppColors.textOnAccent
+                        : AppColors.textPrimary,
                     fontSize: 15,
                   ),
                 ),
@@ -745,9 +801,11 @@ class _MessagesScreenState extends State<MessagesScreen>
                       style: TextStyle(
                         color: (hasImage && !hasText)
                             ? Colors.white
-                            : (isMine 
-                                ? (hasImage ? AppColors.textPrimary : AppColors.textOnAccent)
-                                : AppColors.textSecondary),
+                            : (isMine
+                                  ? (hasImage
+                                        ? AppColors.textPrimary
+                                        : AppColors.textOnAccent)
+                                  : AppColors.textSecondary),
                         fontSize: 10,
                       ),
                     ),
@@ -917,6 +975,14 @@ class _MessagesScreenState extends State<MessagesScreen>
                   builder: (context, state) {
                     if (state is MessagesLoading) {
                       return const Center(child: CircularProgressIndicator());
+                    } else if (state is MessagesOfflineUnavailable) {
+                      return ErrorDisplay(
+                        message:
+                            'История чата недоступна без подключения к сети',
+                        onRetry: () => context.read<MessagesBloc>().add(
+                          LoadMessages(widget.chatId),
+                        ),
+                      );
                     } else if (state is MessagesLoaded) {
                       return ListView.builder(
                         controller: _scrollController,
@@ -971,7 +1037,9 @@ class _MessagesScreenState extends State<MessagesScreen>
                 isVisible: _emojiVisible,
                 onEmojiSelected: () {
                   setState(() {
-                    _isSendButtonActive = _textController.text.trim().isNotEmpty;
+                    _isSendButtonActive = _textController.text
+                        .trim()
+                        .isNotEmpty;
                   });
                 },
               ),
@@ -1055,7 +1123,10 @@ class _MessagesScreenState extends State<MessagesScreen>
                       color: AppColors.bgInput,
                       borderRadius: BorderRadius.circular(22),
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 4,
+                    ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
@@ -1097,7 +1168,9 @@ class _MessagesScreenState extends State<MessagesScreen>
                               ),
                               border: InputBorder.none,
                               isDense: true,
-                              contentPadding: EdgeInsets.symmetric(vertical: 10),
+                              contentPadding: EdgeInsets.symmetric(
+                                vertical: 10,
+                              ),
                             ),
                             style: const TextStyle(
                               color: AppColors.textPrimary,
@@ -1179,7 +1252,6 @@ class _MessagesScreenState extends State<MessagesScreen>
       ],
     );
   }
-
 
   Widget _buildReplyPreview() {
     final blocState = context.read<MessagesBloc>().state;
@@ -1269,7 +1341,8 @@ class _DocumentBubbleState extends State<_DocumentBubble> {
 
   Future<void> _openFile() async {
     // Если файл уже есть локально — открываем сразу (расширение сохранено)
-    if (widget.content.localPath != null && widget.content.localPath!.isNotEmpty) {
+    if (widget.content.localPath != null &&
+        widget.content.localPath!.isNotEmpty) {
       final file = File(widget.content.localPath!);
       if (await file.exists()) {
         await OpenFilex.open(widget.content.localPath!);
@@ -1280,7 +1353,9 @@ class _DocumentBubbleState extends State<_DocumentBubble> {
     // Скачиваем через кеш
     setState(() => _isLoading = true);
     try {
-      final fileInfo = await sl<MediaCacheService>().downloadFile(widget.content.accessKey);
+      final fileInfo = await sl<MediaCacheService>().downloadFile(
+        widget.content.accessKey,
+      );
 
       // flutter_cache_manager сохраняет файл без расширения →
       // iOS не определяет тип. Копируем с правильным именем во temp.
@@ -1300,9 +1375,9 @@ class _DocumentBubbleState extends State<_DocumentBubble> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -1344,27 +1419,33 @@ class _DocumentBubbleState extends State<_DocumentBubble> {
                   Text(
                     widget.content.fileName,
                     style: TextStyle(
-                      color: isMine ? AppColors.textOnAccent : AppColors.textPrimary,
+                      color: isMine
+                          ? AppColors.textOnAccent
+                          : AppColors.textPrimary,
                       fontSize: 14,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
-                    if (_isLoading)
-                      Text(
-                        'Загрузка...',
-                        style: TextStyle(
-                          color: isMine ? AppColors.textOnAccent : AppColors.textSecondary,
-                          fontSize: 11,
-                        ),
-                      )
-                    else
-                      Text(
-                        'Нажмите, чтобы открыть',
-                        style: TextStyle(
-                          color: isMine ? AppColors.textOnAccent : AppColors.textSecondary,
-                          fontSize: 11,
-                        ),
+                  if (_isLoading)
+                    Text(
+                      'Загрузка...',
+                      style: TextStyle(
+                        color: isMine
+                            ? AppColors.textOnAccent
+                            : AppColors.textSecondary,
+                        fontSize: 11,
                       ),
+                    )
+                  else
+                    Text(
+                      'Нажмите, чтобы открыть',
+                      style: TextStyle(
+                        color: isMine
+                            ? AppColors.textOnAccent
+                            : AppColors.textSecondary,
+                        fontSize: 11,
+                      ),
+                    ),
                 ],
               ),
             ),

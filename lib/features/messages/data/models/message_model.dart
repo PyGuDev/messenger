@@ -82,7 +82,10 @@ class MessageModel {
       id: (json['id'] ?? json['ID'])?.toString() ?? '',
       chatId: (json['chat_id'] ?? json['ChatID'])?.toString() ?? '',
       authorId: (json['author_id'] ?? json['AuthorID'])?.toString() ?? '',
-      text: (json['body'] ?? json['Body'])?.toString() ?? '',
+      text:
+          (json['body'] ?? json['Body'] ?? json['text'] ?? json['Text'])
+              ?.toString() ??
+          '',
       createdAt: createdAt,
       updatedAt:
           DateTime.tryParse(

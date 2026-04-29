@@ -19,7 +19,12 @@ class UserProfile {
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
     return UserProfile(
-      id: (json['id'] as String?) ?? (json['ID'] as String?) ?? (json['userId'] as String?) ?? (json['userID'] as String?) ?? '',
+      id:
+          (json['id'] as String?) ??
+          (json['ID'] as String?) ??
+          (json['userId'] as String?) ??
+          (json['userID'] as String?) ??
+          '',
       firstName: (json['firstName'] as String?) ?? '',
       lastName: (json['lastName'] as String?) ?? '',
       phone: (json['phone'] as String?) ?? '',
@@ -78,7 +83,12 @@ class UserService {
       _cache[userId] = profile;
       return profile;
     } catch (e) {
-      return const UserProfile(firstName: '', lastName: '', phone: '', email: '');
+      return const UserProfile(
+        firstName: '',
+        lastName: '',
+        phone: '',
+        email: '',
+      );
     }
   }
 
@@ -87,37 +97,30 @@ class UserService {
       final queryParams = <String, dynamic>{};
       if (phone != null && phone.isNotEmpty) queryParams['phone'] = phone;
       if (email != null && email.isNotEmpty) queryParams['email'] = email;
-      
+
       if (queryParams.isEmpty) return [];
 
       final response = await _dio.get(
-        '/users/search', 
+        '/users/search',
         queryParameters: queryParams,
         options: Options(responseType: ResponseType.plain),
       );
       final rawBody = response.data as String;
-      debugPrint('[UserService] searchUser RAW JSON BODY: $rawBody');
-      
+      _log('searchUser response received');
+
       // Parse the raw JSON manually
       final dynamic data;
       try {
         data = jsonDecode(rawBody);
       } catch (e) {
-        debugPrint('[UserService] Failed to parse JSON: $e');
+        _log('failed to parse searchUser response: $e');
         return [];
       }
-      debugPrint('[UserService] searchUser parsed data: $data');
-      
+
       if (data is List) {
-        for (final e in data) {
-          if (e is Map<String, dynamic>) {
-            debugPrint('[UserService] item keys: ${e.keys.toList()}, full item: $e');
-          }
-        }
-        final results = data.map((e) => UserProfile.fromJson(e as Map<String, dynamic>)).toList();
-        for (final p in results) {
-          debugPrint('[UserService] parsed profile: id=${p.id}, firstName=${p.firstName}, phone=${p.phone}');
-        }
+        final results = data
+            .map((e) => UserProfile.fromJson(e as Map<String, dynamic>))
+            .toList();
         return results;
       }
       return [];
@@ -128,5 +131,11 @@ class UserService {
 
   void clearCache() {
     _cache.clear();
+  }
+
+  void _log(String message) {
+    if (kDebugMode) {
+      debugPrint('[UserService] $message');
+    }
   }
 }

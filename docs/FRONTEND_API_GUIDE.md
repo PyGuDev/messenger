@@ -19,6 +19,29 @@
 9. [TypeScript-типы](#9-typescript-типы)
 10. [Полный пример: обёртка-клиент](#10-полный-пример-обёртка-клиент)
 
+## Конфигурация клиента
+
+Flutter-клиент больше не должен хранить URL сервисов в исходниках. Перед
+запуском приложения передайте значения через `--dart-define`:
+
+```bash
+flutter run \
+  --dart-define=APP_ENVIRONMENT_NAME=local \
+  --dart-define=APP_AUTH_BASE_URL=https://auth.example.com/auth/api/v1 \
+  --dart-define=APP_CHAT_BASE_URL=https://chat.example.com/room/api/v1 \
+  --dart-define=APP_FILE_BASE_URL=https://files.example.com/file \
+  --dart-define=APP_WS_BASE_URL=wss://chat.example.com/room/ws
+```
+
+- `APP_AUTH_BASE_URL` используется для auth-клиента.
+- `APP_CHAT_BASE_URL` используется для REST-запросов чатов и сообщений.
+- `APP_FILE_BASE_URL` используется для загрузки и скачивания файлов.
+- `APP_WS_BASE_URL` используется для WebSocket-подключения.
+
+Если одно из обязательных значений отсутствует или имеет неверный формат,
+клиент показывает блокирующий экран ошибки конфигурации до старта сетевых
+сценариев.
+
 ---
 
 ## 1. Аутентификация (JWT)

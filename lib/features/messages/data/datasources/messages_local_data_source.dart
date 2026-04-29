@@ -1,10 +1,14 @@
 import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import '../models/message_model.dart';
-import '../../../../core/local/database_helper.dart';
+import '../../../../core/local/database_provider.dart';
 
 abstract class MessagesLocalDataSource {
   Future<List<MessageModel>> getMessages(String chatId);
+  Future<void> replaceMessagesForChat(
+    String chatId,
+    List<MessageModel> messages,
+  );
   Future<void> saveMessages(List<MessageModel> messages);
   Future<void> saveMessage(MessageModel message);
   Future<void> updateMessageStatus(String messageId, MessageStatus status);
@@ -12,7 +16,7 @@ abstract class MessagesLocalDataSource {
 }
 
 class MessagesLocalDataSourceImpl implements MessagesLocalDataSource {
-  final DatabaseHelper dbHelper;
+  final DatabaseProvider dbHelper;
 
   MessagesLocalDataSourceImpl(this.dbHelper);
 
@@ -27,20 +31,26 @@ class MessagesLocalDataSourceImpl implements MessagesLocalDataSource {
     );
 
     return List.generate(maps.length, (i) {
-      // Create a copy to avoid modification while processing
-      final Map<String, dynamic> item = Map<String, dynamic>.from(maps[i]);
-
-      // Handle the attached_content JSON string
-      final String? attachedContentJson = item['attached_content'];
-      List<dynamic> attachments = [];
-      if (attachedContentJson != null && attachedContentJson.isNotEmpty) {
-        attachments = jsonDecode(attachedContentJson);
-      }
-      item['attached_content'] = attachments;
-
-      // Parse dates
-      return MessageModel.fromJson(item);
+      return deserializeMessageRow(maps[i]);
     });
+  }
+
+  @override
+  Future<void> replaceMessagesForChat(
+    String chatId,
+    List<MessageModel> messages,
+  ) async {
+    final db = await dbHelper.database;
+    final batch = db.batch();
+    batch.delete('messages', where: 'chat_id = ?', whereArgs: [chatId]);
+    for (final message in messages.where((item) => item.chatId == chatId)) {
+      batch.insert(
+        'messages',
+        serializeMessage(message),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+    await batch.commit(noResult: true);
   }
 
   @override
@@ -62,7 +72,7 @@ class MessagesLocalDataSourceImpl implements MessagesLocalDataSource {
     final db = await dbHelper.database;
     await db.insert(
       'messages',
-      _messageToMap(message),
+      serializeMessage(message),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
@@ -92,6 +102,10 @@ class MessagesLocalDataSourceImpl implements MessagesLocalDataSource {
   }
 
   Map<String, dynamic> _messageToMap(MessageModel message) {
+    return serializeMessage(message);
+  }
+
+  static Map<String, dynamic> serializeMessage(MessageModel message) {
     return {
       'id': message.id,
       'chat_id': message.chatId,
@@ -107,5 +121,17 @@ class MessagesLocalDataSourceImpl implements MessagesLocalDataSource {
         message.attachedContent.map((e) => e.toJson()).toList(),
       ),
     };
+  }
+
+  static MessageModel deserializeMessageRow(Map<String, dynamic> row) {
+    final item = Map<String, dynamic>.from(row);
+    final attachedContentJson = item['attached_content']?.toString();
+    List<dynamic> attachments = [];
+    if (attachedContentJson != null && attachedContentJson.isNotEmpty) {
+      attachments = jsonDecode(attachedContentJson) as List<dynamic>;
+    }
+    item['attached_content'] = attachments;
+    item['body'] = item['body'] ?? item['text'];
+    return MessageModel.fromJson(item);
   }
 }
