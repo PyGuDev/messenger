@@ -11,6 +11,7 @@ import 'core/network/configuration_error_state.dart';
 import 'core/di/injection_container.dart' as di;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'core/navigation/router.dart';
+import 'package:messenger/shared/theme/app_colors.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -36,6 +37,7 @@ class MessengerApp extends StatelessWidget {
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
           useMaterial3: true,
+          scaffoldBackgroundColor: AppColors.bgPrimary,
         ),
         home: ConfigurationErrorScreen(error: configurationError!),
       );
@@ -55,6 +57,7 @@ class MessengerApp extends StatelessWidget {
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
           useMaterial3: true,
+          scaffoldBackgroundColor: AppColors.bgPrimary,
         ),
         routerConfig: router,
         localizationsDelegates: const [
