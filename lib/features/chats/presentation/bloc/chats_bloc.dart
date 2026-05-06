@@ -28,6 +28,7 @@ class ChatsBloc extends Bloc<ChatsEvent, ChatsState> {
     on<LoadChats>(_onLoadChats);
     on<LoadMoreChats>(_onLoadMoreChats);
     on<CreateChat>(_onCreateChat);
+    on<CreateGroupChat>(_onCreateGroupChat);
     on<OnWebSocketEvent>(_onWebSocketEvent);
 
     _wsSubscription = _wsService.events.listen((event) {
@@ -204,6 +205,32 @@ class ChatsBloc extends Bloc<ChatsEvent, ChatsState> {
     }
   }
 
+  Future<void> _onCreateGroupChat(CreateGroupChat event, Emitter<ChatsState> emit) async {
+    try {
+      final response = await _dio.post(
+        '/chats',
+        data: {
+          'type': 2, // Group chat
+          'title': event.title,
+          'member_ids': event.memberIds,
+        },
+      );
+
+      if (response.data['status'] == 'error') {
+        throw ChatApiException.fromJson(response.data);
+      }
+
+      final chatId = response.data['data'] != null ? response.data['data']['chat_id']?.toString() : null;
+      if (chatId != null) {
+        emit(ChatCreatedSuccess(chatId));
+      }
+      add(LoadChats());
+    } catch (e) {
+      emit(ChatsError(e.toString()));
+      add(LoadChats());
+    }
+  }
+
   Future<void> _onWebSocketEvent(
     OnWebSocketEvent event,
     Emitter<ChatsState> emit,
@@ -216,9 +243,22 @@ class ChatsBloc extends Bloc<ChatsEvent, ChatsState> {
         final payload = eventData['payload'];
         if (payload == null) return;
 
-        final chatId = payload['chat_id']?.toString();
+        final chatId = (payload['chat_id'] ??
+                payload['ChatID'] ??
+                payload['chatId'] ??
+                payload['id'] ??
+                payload['ID'])
+            ?.toString();
         final messageData = payload['message'];
         if (messageData == null || chatId == null) return;
+
+        final myId = await _getCurrentUserId();
+        final authorId =
+            (messageData['author_id'] ??
+                    messageData['AuthorID'] ??
+                    messageData['sender_id'])
+                ?.toString();
+        final isMine = myId != null && authorId == myId;
 
         final existingChatIndex = currentState.chats.indexWhere(
           (c) => c.id == chatId,
@@ -228,7 +268,7 @@ class ChatsBloc extends Bloc<ChatsEvent, ChatsState> {
           final chat = currentState.chats[existingChatIndex];
           final updatedChat = chat.copyWith(
             lastMessage: LastMessageModel.fromJson(messageData),
-            unreadCount: chat.unreadCount + 1,
+            unreadCount: isMine ? chat.unreadCount : chat.unreadCount + 1,
             updatedAt:
                 DateTime.tryParse(
                   (messageData['created_at'] ?? messageData['CreatedAt'])
@@ -252,7 +292,12 @@ class ChatsBloc extends Bloc<ChatsEvent, ChatsState> {
         final payload = eventData['payload'];
         if (payload == null) return;
 
-        final chatId = payload['chat_id']?.toString();
+        final chatId = (payload['chat_id'] ??
+                payload['ChatID'] ??
+                payload['chatId'] ??
+                payload['id'] ??
+                payload['ID'])
+            ?.toString();
         final readerId = payload['user_id']?.toString();
         if (chatId == null) return;
 

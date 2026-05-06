@@ -10,7 +10,8 @@ import '../../features/auth/presentation/screens/register_screen.dart';
 import '../../features/auth/presentation/screens/splash_screen.dart';
 import '../../features/messages/presentation/screens/messages_screen.dart';
 import '../../features/messages/presentation/bloc/messages_bloc.dart';
-import '../../features/chats/presentation/screens/create_chat_screen.dart';
+import '../../features/chats/presentation/screens/create_group_chat_screen.dart';
+import '../../features/chats/presentation/screens/select_contact_screen.dart';
 import '../../features/chats/presentation/bloc/contact_chat_launch_bloc.dart';
 import '../../features/contacts/presentation/screens/create_contact_screen.dart';
 import '../../features/contacts/presentation/screens/contact_profile_screen.dart';
@@ -87,8 +88,15 @@ final router = GoRouter(
       },
     ),
     GoRoute(
-      path: '/create-chat',
-      builder: (context, state) => const CreateChatScreen(),
+      path: '/create-group-chat',
+      builder: (context, state) => const CreateGroupChatScreen(),
+    ),
+    GoRoute(
+      path: '/select-contact',
+      builder: (context, state) => BlocProvider(
+        create: (_) => sl<ContactChatLaunchBloc>(),
+        child: const SelectContactScreen(),
+      ),
     ),
     GoRoute(
       path: '/create-contact',

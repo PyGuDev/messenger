@@ -399,7 +399,12 @@ class MessagesBloc extends Bloc<MessagesEvent, MessagesState> {
         final payload = eventData['payload'];
         if (payload == null) return;
 
-        final chatId = payload['chat_id']?.toString();
+        final chatId = (payload['chat_id'] ??
+                payload['ChatID'] ??
+                payload['chatId'] ??
+                payload['id'] ??
+                payload['ID'])
+            ?.toString();
         final messageData = payload['message'];
         if (messageData == null) return;
 
@@ -440,7 +445,12 @@ class MessagesBloc extends Bloc<MessagesEvent, MessagesState> {
         final payload = eventData['payload'];
         if (payload == null) return;
 
-        final chatId = payload['chat_id']?.toString();
+        final chatId = (payload['chat_id'] ??
+                payload['ChatID'] ??
+                payload['chatId'] ??
+                payload['id'] ??
+                payload['ID'])
+            ?.toString();
         final readerId = payload['user_id']?.toString();
         final upToStr = payload['read_up_to']?.toString();
 
