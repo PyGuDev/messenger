@@ -79,7 +79,7 @@
 ### Tests for User Story 2
 
 - [X] T018 [P] [US2] Add direct-chat launch state transition and duplicate-request coverage in `test/features/chats/contact_chat_launch_bloc_test.dart`
-- [ ] T019 [P] [US2] Add navigation flow coverage for contact-profile-to-chat resolution in `test/navigation/chat_route_test.dart`
+- [X] T019 [P] [US2] Add navigation flow coverage for contact-profile-to-chat resolution in `test/navigation/chat_route_test.dart`
 
 ### Implementation for User Story 2
 

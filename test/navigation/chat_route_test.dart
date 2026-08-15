@@ -16,6 +16,12 @@ import 'package:messenger/core/network/user_service.dart';
 import 'package:messenger/core/network/websocket_service.dart';
 import 'package:messenger/core/network/voice_recorder_service.dart';
 import 'package:messenger/core/security/token_storage.dart';
+import 'package:messenger/features/chats/data/datasources/chats_local_data_source.dart';
+import 'package:messenger/features/chats/data/models/chat_model.dart';
+import 'package:messenger/features/chats/presentation/bloc/chats_bloc.dart';
+import 'package:messenger/features/chats/presentation/bloc/chats_event.dart';
+import 'package:messenger/features/chats/presentation/bloc/contact_chat_launch_bloc.dart';
+import 'package:messenger/features/contacts/presentation/screens/contact_profile_screen.dart';
 import 'package:messenger/features/messages/data/datasources/messages_local_data_source.dart';
 import 'package:messenger/features/messages/data/models/message_model.dart';
 import 'package:messenger/features/messages/presentation/bloc/messages_bloc.dart';
@@ -205,6 +211,51 @@ class _TrackingVoiceRecordingService implements VoiceRecordingService {
   Future<String?> stop() async => null;
 }
 
+class _EmptyChatsCache implements ChatsLocalDataSource {
+  @override
+  Future<void> clearAll() async {}
+
+  @override
+  Future<void> deleteChat(String chatId) async {}
+
+  @override
+  Future<List<ChatModel>> getChats() async => const <ChatModel>[];
+
+  @override
+  Future<void> saveChat(ChatModel chat) async {}
+
+  @override
+  Future<void> saveChats(List<ChatModel> chats) async {}
+}
+
+class _RecordingChatsBloc extends ChatsBloc {
+  _RecordingChatsBloc()
+    : super(
+        Dio(),
+        WebSocketService(
+          _TokenStorage(),
+          const _NetworkInfo(),
+          const RuntimeEnvironmentProfile(
+            environmentName: 'test',
+            authBaseUrl: 'https://auth.example.com',
+            chatBaseUrl: 'https://chat.example.com',
+            fileBaseUrl: 'https://files.example.com',
+            wsBaseUrl: 'wss://chat.example.com',
+          ),
+        ),
+        UserService(Dio()),
+        _TokenStorage(),
+        _EmptyChatsCache(),
+      );
+
+  final List<ChatsEvent> events = <ChatsEvent>[];
+
+  @override
+  void add(ChatsEvent event) {
+    events.add(event);
+  }
+}
+
 MessagesBloc _sessionBloc(
   String chatId,
   _MessagesCache cache, {
@@ -312,7 +363,129 @@ class _BlocProbe extends StatelessWidget {
   }
 }
 
+Future<void> _expectContactProfileToNavigateToChat(
+  WidgetTester tester, {
+  required bool existingChat,
+}) async {
+  final expectedChatId = existingChat ? 'chat-existing' : 'chat-new';
+  final chatDio = Dio();
+  final chatsBloc = _RecordingChatsBloc();
+  final launchBloc = ContactChatLaunchBloc(chatDio, chatsBloc);
+  final requestedPaths = <String>[];
+  chatDio.interceptors.add(
+    InterceptorsWrapper(
+      onRequest: (options, handler) {
+        requestedPaths.add('${options.method} ${options.path}');
+        if (options.method == 'GET' && options.path == '/chats/personal') {
+          expect(options.queryParameters, {'user_id': 'user-2'});
+          if (existingChat) {
+            handler.resolve(
+              Response<Map<String, dynamic>>(
+                requestOptions: options,
+                statusCode: 200,
+                data: const <String, dynamic>{
+                  'data': <String, dynamic>{'chat_id': 'chat-existing'},
+                },
+              ),
+            );
+          } else {
+            handler.reject(
+              DioException(
+                requestOptions: options,
+                response: Response<void>(
+                  requestOptions: options,
+                  statusCode: 404,
+                ),
+              ),
+            );
+          }
+          return;
+        }
+
+        expect(options.method, 'POST');
+        expect(options.path, '/chats');
+        expect(options.data, {
+          'type': 1,
+          'member_ids': ['user-2'],
+        });
+        handler.resolve(
+          Response<Map<String, dynamic>>(
+            requestOptions: options,
+            statusCode: 201,
+            data: const <String, dynamic>{
+              'data': <String, dynamic>{'chat_id': 'chat-new'},
+            },
+          ),
+        );
+      },
+    ),
+  );
+  addTearDown(launchBloc.close);
+  addTearDown(chatsBloc.close);
+
+  final testRouter = GoRouter(
+    initialLocation: '/contact-profile',
+    routes: [
+      GoRoute(
+        path: '/contact-profile',
+        builder: (_, _) => MultiBlocProvider(
+          providers: [
+            BlocProvider<ChatsBloc>.value(value: chatsBloc),
+            BlocProvider<ContactChatLaunchBloc>.value(value: launchBloc),
+          ],
+          child: const ContactProfileScreen(
+            name: 'Alice Example',
+            phone: '+79990000000',
+            color: Colors.blue,
+            isOnline: true,
+            inMessenger: true,
+            userId: 'user-2',
+          ),
+        ),
+      ),
+      GoRoute(
+        path: '/chat/:id',
+        builder: (context, state) => Scaffold(
+          body: Text(
+            'Chat route: ${state.pathParameters['id']} / ${state.extra}',
+          ),
+        ),
+      ),
+    ],
+  );
+  addTearDown(testRouter.dispose);
+
+  await tester.pumpWidget(MaterialApp.router(routerConfig: testRouter));
+  await tester.tap(find.text('Написать'));
+  await tester.pumpAndSettle();
+
+  expect(
+    find.text('Chat route: $expectedChatId / Alice Example'),
+    findsOneWidget,
+  );
+  expect(
+    requestedPaths,
+    existingChat
+        ? ['GET /chats/personal']
+        : ['GET /chats/personal', 'POST /chats'],
+  );
+  expect(chatsBloc.events.whereType<LoadChats>(), hasLength(2));
+  expect(launchBloc.state.status, ContactChatLaunchStatus.idle);
+}
+
 void main() {
+  testWidgets(
+    'contact profile reuses a resolved Direct Chat and navigates to its Chat route',
+    (tester) =>
+        _expectContactProfileToNavigateToChat(tester, existingChat: true),
+  );
+
+  testWidgets(
+    'contact profile creates a Direct Chat and navigates to its Chat route',
+    (tester) =>
+        _expectContactProfileToNavigateToChat(tester, existingChat: false),
+  );
+
   testWidgets('each Chat Session receives and disposes its own MessagesBloc', (
     tester,
   ) async {
