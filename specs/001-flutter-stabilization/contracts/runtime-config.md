@@ -31,7 +31,9 @@ The client must resolve and validate these values before creating affected trans
 
 - Contributor-facing setup documentation must explain how to supply environment values for local and release verification.
 - If build tooling or startup flow changes the way configuration is supplied, reflect that change in `README.md`.
-- Current implementation uses Flutter Dart defines:
+- The target precedence is Flutter Dart defines first, with `.env` allowed only as a local fallback.
+- The implementation observed on 2026-08-15 currently loads `.env` first and therefore lets it override Dart defines. This remains a documented deviation until the code is changed.
+- Supported keys are:
   - `APP_ENVIRONMENT_NAME`
   - `APP_AUTH_BASE_URL`
   - `APP_CHAT_BASE_URL`

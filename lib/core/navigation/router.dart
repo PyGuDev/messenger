@@ -16,6 +16,7 @@ import '../../features/chats/presentation/bloc/contact_chat_launch_bloc.dart';
 import '../../features/contacts/presentation/screens/create_contact_screen.dart';
 import '../../features/contacts/presentation/screens/contact_profile_screen.dart';
 import '../../features/profile/presentation/screens/edit_profile_screen.dart';
+import '../../shared/contacts/matched_contacts_bloc.dart';
 import 'package:flutter/material.dart';
 import 'main_screen.dart';
 
@@ -34,6 +35,20 @@ class GoRouterRefreshStream extends ChangeNotifier {
     _subscription.cancel();
     super.dispose();
   }
+}
+
+Widget buildChatSession({
+  required String chatId,
+  required MessagesBloc Function() createMessagesBloc,
+  required Widget child,
+}) {
+  return KeyedSubtree(
+    key: ValueKey<String>('chat-session:$chatId'),
+    child: BlocProvider<MessagesBloc>(
+      create: (_) => createMessagesBloc(),
+      child: child,
+    ),
+  );
 }
 
 final router = GoRouter(
@@ -74,27 +89,44 @@ final router = GoRouter(
       path: '/register',
       builder: (context, state) => const RegisterScreen(),
     ),
-    GoRoute(path: '/chats', builder: (context, state) => const MainScreen()),
+    GoRoute(
+      path: '/chats',
+      builder: (context, state) => BlocProvider<MatchedContactsBloc>(
+        create: (_) => sl<MatchedContactsBloc>()..load(),
+        child: const MainScreen(),
+      ),
+    ),
     GoRoute(
       path: '/chat/:id',
       builder: (context, state) {
         final chatId = state.pathParameters['id']!;
         final title = state.extra as String? ?? 'Chat';
         final isGroup = state.uri.queryParameters['isGroup'] == 'true';
-        return BlocProvider(
-          create: (_) => sl<MessagesBloc>(),
+        return buildChatSession(
+          chatId: chatId,
+          createMessagesBloc: () => sl<MessagesBloc>(),
           child: MessagesScreen(chatId: chatId, title: title, isGroup: isGroup),
         );
       },
     ),
     GoRoute(
       path: '/create-group-chat',
-      builder: (context, state) => const CreateGroupChatScreen(),
+      builder: (context, state) => BlocProvider<MatchedContactsBloc>(
+        create: (_) => sl<MatchedContactsBloc>()..load(),
+        child: const CreateGroupChatScreen(),
+      ),
     ),
     GoRoute(
       path: '/select-contact',
-      builder: (context, state) => BlocProvider(
-        create: (_) => sl<ContactChatLaunchBloc>(),
+      builder: (context, state) => MultiBlocProvider(
+        providers: [
+          BlocProvider<ContactChatLaunchBloc>(
+            create: (_) => sl<ContactChatLaunchBloc>(),
+          ),
+          BlocProvider<MatchedContactsBloc>(
+            create: (_) => sl<MatchedContactsBloc>()..load(),
+          ),
+        ],
         child: const SelectContactScreen(),
       ),
     ),
@@ -107,7 +139,7 @@ final router = GoRouter(
       builder: (context, state) {
         final Map<String, dynamic> extra =
             state.extra as Map<String, dynamic>? ?? {};
-        return BlocProvider(
+        return BlocProvider<ContactChatLaunchBloc>(
           create: (_) => sl<ContactChatLaunchBloc>(),
           child: ContactProfileScreen(
             name: extra['name'] as String? ?? 'Unknown',

@@ -80,10 +80,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(state.message, style: const TextStyle(color: Colors.red)),
+                  Text(
+                    state.message,
+                    style: const TextStyle(color: Colors.red),
+                  ),
                   const SizedBox(height: 16),
                   ElevatedButton(
-                    onPressed: () => context.read<ProfileBloc>().add(LoadProfile()),
+                    onPressed: () =>
+                        context.read<ProfileBloc>().add(LoadProfile()),
                     child: const Text('Retry'),
                   ),
                 ],
@@ -113,7 +117,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 child: Center(
                   child: Text(
-                    state.firstName.isNotEmpty ? state.firstName[0].toUpperCase() : '?',
+                    state.firstName.isNotEmpty
+                        ? state.firstName[0].toUpperCase()
+                        : '?',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 32,
@@ -144,10 +150,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const SizedBox(height: 16),
               ElevatedButton.icon(
                 onPressed: () => context.push('/edit-profile'),
-                icon: const Icon(Icons.edit_outlined, size: 18, color: AppColors.accentBlue),
+                icon: const Icon(
+                  Icons.edit_outlined,
+                  size: 18,
+                  color: AppColors.accentBlue,
+                ),
                 label: const Text(
                   'Редактировать профиль',
-                  style: TextStyle(color: AppColors.accentBlue, fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                    color: AppColors.accentBlue,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.accentBlueLight,

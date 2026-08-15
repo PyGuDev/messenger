@@ -63,6 +63,7 @@ class ContactChatLaunchState extends Equatable {
 class ContactChatLaunchBloc extends Cubit<ContactChatLaunchState> {
   final Dio _dio;
   final ChatsBloc _chatsBloc;
+  int _launchRequestId = 0;
 
   ContactChatLaunchBloc(this._dio, this._chatsBloc)
     : super(const ContactChatLaunchState());
@@ -86,6 +87,7 @@ class ContactChatLaunchBloc extends Cubit<ContactChatLaunchState> {
       return;
     }
 
+    final requestId = ++_launchRequestId;
     emit(
       ContactChatLaunchState(
         status: ContactChatLaunchStatus.checkingExisting,
@@ -95,6 +97,7 @@ class ContactChatLaunchBloc extends Cubit<ContactChatLaunchState> {
 
     try {
       final existingChatId = await _findExistingDirectChat(userId);
+      if (!_isActiveRequest(requestId, userId)) return;
       if (existingChatId != null) {
         _chatsBloc.add(LoadChats());
         emit(
@@ -122,6 +125,7 @@ class ContactChatLaunchBloc extends Cubit<ContactChatLaunchState> {
           'member_ids': [userId],
         },
       );
+      if (!_isActiveRequest(requestId, userId)) return;
 
       final chatId = _extractChatId(response.data);
       if (chatId == null || chatId.isEmpty) {
@@ -137,6 +141,7 @@ class ContactChatLaunchBloc extends Cubit<ContactChatLaunchState> {
         ),
       );
     } on DioException catch (error) {
+      if (!_isActiveRequest(requestId, userId)) return;
       emit(
         ContactChatLaunchState(
           status: ContactChatLaunchStatus.failed,
@@ -145,6 +150,7 @@ class ContactChatLaunchBloc extends Cubit<ContactChatLaunchState> {
         ),
       );
     } catch (_) {
+      if (!_isActiveRequest(requestId, userId)) return;
       emit(
         ContactChatLaunchState(
           status: ContactChatLaunchStatus.failed,
@@ -159,13 +165,21 @@ class ContactChatLaunchBloc extends Cubit<ContactChatLaunchState> {
     emit(const ContactChatLaunchState());
   }
 
+  bool _isActiveRequest(int requestId, String userId) {
+    return requestId == _launchRequestId && state.activeUserId == userId;
+  }
+
   Future<String?> _findExistingDirectChat(String userId) async {
     try {
       final response = await _dio.get(
         '/chats/personal',
         queryParameters: {'user_id': userId},
       );
-      return _extractChatId(response.data);
+      final chatId = _extractChatId(response.data);
+      if (chatId == null || chatId.isEmpty) {
+        throw const FormatException('Chat id is missing in lookup response');
+      }
+      return chatId;
     } on DioException catch (error) {
       if (error.response?.statusCode == 404) {
         return null;

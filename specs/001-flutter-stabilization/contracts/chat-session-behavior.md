@@ -26,6 +26,11 @@ Defines the expected client-side behavior for message timeline restore, per-chat
   3. Create a new direct chat only if no existing match is found.
 - If launch fails, the user remains on a recoverable screen and receives a clear failure message.
 - Repeated launch attempts while one request is active must not create duplicate chats.
+- A `404` from direct-chat lookup is the only lookup outcome that permits the
+  client to request creation. Transport errors, malformed responses, and other
+  status codes remain recoverable failures and must not trigger creation.
+- This client-side in-flight guard is scoped to one launch flow; canonical
+  uniqueness across clients remains a backend responsibility.
 
 ## 4. Documentation Alignment
 

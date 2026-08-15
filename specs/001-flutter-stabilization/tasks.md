@@ -54,7 +54,7 @@
 
 - [X] T008 [P] [US1] Add cache serialization and reconciliation regression coverage in `test/features/messages/messages_local_data_source_test.dart`
 - [X] T009 [P] [US1] Add `MessagesBloc` offline restore, first-sync offline unavailable, and cross-chat isolation coverage in `test/features/messages/messages_bloc_test.dart`
-- [ ] T010 [P] [US1] Add route-scoped chat session lifecycle coverage in `test/navigation/chat_route_test.dart`
+- [X] T010 [P] [US1] Add route-scoped chat session lifecycle coverage in `test/navigation/chat_route_test.dart`
 
 ### Implementation for User Story 1
 
@@ -87,7 +87,7 @@
 - [X] T021 [US2] Move direct-chat lookup/create orchestration out of widget code and into application state in `lib/features/contacts/presentation/screens/contact_profile_screen.dart` and `lib/features/chats/presentation/bloc/contact_chat_launch_bloc.dart`
 - [X] T022 [US2] Wire canonical contact-to-chat navigation outcomes through the router in `lib/core/navigation/router.dart` and `lib/features/contacts/presentation/screens/contact_profile_screen.dart`
 - [X] T023 [US2] Handle in-flight retries, recoverable errors, and progress UI for conversation launch in `lib/features/contacts/presentation/screens/contact_profile_screen.dart` and `lib/features/chats/presentation/bloc/contact_chat_launch_bloc.dart`
-- [ ] T024 [US2] Synchronize the direct-chat reuse/create contract in `specs/001-flutter-stabilization/contracts/chat-session-behavior.md` and `docs/chat_api.md`
+- [X] T024 [US2] Synchronize the direct-chat reuse/create contract in `specs/001-flutter-stabilization/contracts/chat-session-behavior.md` and `docs/chat_api.md`
 
 **Checkpoint**: User Story 2 is independently functional when contact entry points consistently reuse existing direct chats, create only when needed, and never navigate into a partial failure state.
 
@@ -120,7 +120,7 @@
 **Purpose**: Final validation and cleanup across all implemented stories.
 
 - [ ] T031 [P] Run the full stabilization verification flow from `specs/001-flutter-stabilization/quickstart.md`
-- [ ] T032 Fix analyzer warnings and cleanup remaining stabilization-related issues in `lib/` and `test/` surfaced by `flutter analyze`
+- [X] T032 Fix analyzer warnings and cleanup remaining stabilization-related issues in `lib/` and `test/` surfaced by `flutter analyze`
 - [ ] T033 [P] Confirm final contract and contributor documentation alignment in `README.md`, `docs/chat_api.md`, and `docs/FRONTEND_API_GUIDE.md`
 
 ---
@@ -226,3 +226,6 @@ Task: "Remove hardcoded endpoint usage from transport clients and consume the va
 - All tasks use the required checklist format with sequential task IDs, explicit story labels where needed, and concrete file paths.
 - Tests are included in every user story because each story changes observable behavior and documented contracts.
 - `docs/chat_api.md`, `docs/FRONTEND_API_GUIDE.md`, and `README.md` stay coupled to the behavior they describe; do not defer those updates to a later unrelated change.
+- Reconciled against the working tree on 2026-08-16. `flutter test` passed 38 tests and `flutter analyze` reported no issues.
+- T013, T015, T016, T017, T019, and T026 remain unchecked because their implementation or behavioral coverage is partial. T010 now covers creation and disposal of route-scoped `MessagesBloc` instances; voice recording teardown remains incomplete, offline copy is not localized, and pagination/full session-switch journeys still lack coverage.
+- T031 remains open because the manual quickstart journeys were not executed. T033 remains open while runtime source precedence differs from the target contract and final backend contract verification is pending.

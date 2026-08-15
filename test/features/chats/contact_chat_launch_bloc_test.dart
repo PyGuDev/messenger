@@ -131,6 +131,109 @@ void main() {
   });
 
   test(
+    'does not create a Direct Chat after a malformed lookup response',
+    () async {
+      final dio = Dio();
+      final chatsBloc = _RecordingChatsBloc(profile);
+      var createRequests = 0;
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            if (options.method == 'GET' && options.path == '/chats/personal') {
+              handler.resolve(
+                Response(
+                  requestOptions: options,
+                  statusCode: 200,
+                  data: <String, dynamic>{
+                    'status': 'ok',
+                    'data': <String, dynamic>{},
+                  },
+                ),
+              );
+              return;
+            }
+            if (options.method == 'POST' && options.path == '/chats') {
+              createRequests += 1;
+              handler.resolve(
+                Response(
+                  requestOptions: options,
+                  statusCode: 201,
+                  data: <String, dynamic>{
+                    'data': <String, dynamic>{'chat_id': 'unexpected'},
+                  },
+                ),
+              );
+              return;
+            }
+            fail('Unexpected request: ${options.method} ${options.path}');
+          },
+        ),
+      );
+
+      final bloc = ContactChatLaunchBloc(dio, chatsBloc);
+
+      await bloc.launchConversation(userId: 'user-2', displayName: 'Alice');
+
+      expect(createRequests, 0);
+      expect(bloc.state.status, ContactChatLaunchStatus.failed);
+      expect(bloc.state.resolvedChatId, isNull);
+
+      await bloc.close();
+      await chatsBloc.close();
+    },
+  );
+
+  test('creates a Direct Chat only after lookup returns not found', () async {
+    final dio = Dio();
+    final chatsBloc = _RecordingChatsBloc(profile);
+    var createRequests = 0;
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          if (options.method == 'GET' && options.path == '/chats/personal') {
+            handler.reject(
+              DioException(
+                requestOptions: options,
+                response: Response<void>(
+                  requestOptions: options,
+                  statusCode: 404,
+                ),
+              ),
+            );
+            return;
+          }
+          if (options.method == 'POST' && options.path == '/chats') {
+            createRequests += 1;
+            handler.resolve(
+              Response(
+                requestOptions: options,
+                statusCode: 201,
+                data: <String, dynamic>{
+                  'data': <String, dynamic>{'chat_id': 'chat-new'},
+                },
+              ),
+            );
+            return;
+          }
+          fail('Unexpected request: ${options.method} ${options.path}');
+        },
+      ),
+    );
+
+    final bloc = ContactChatLaunchBloc(dio, chatsBloc);
+
+    await bloc.launchConversation(userId: 'user-2', displayName: 'Alice');
+
+    expect(createRequests, 1);
+    expect(bloc.state.status, ContactChatLaunchStatus.navigating);
+    expect(bloc.state.resolvedChatId, 'chat-new');
+    expect(chatsBloc.recordedEvents.whereType<LoadChats>(), hasLength(1));
+
+    await bloc.close();
+    await chatsBloc.close();
+  });
+
+  test(
     'collapses duplicate taps while the same launch request is in flight',
     () async {
       final dio = Dio();
@@ -183,4 +286,79 @@ void main() {
       await chatsBloc.close();
     },
   );
+
+  test('ignores stale launch result after selecting another contact', () async {
+    final dio = Dio();
+    final chatsBloc = _RecordingChatsBloc(profile);
+    final firstRequest = Completer<void>();
+    final secondRequest = Completer<void>();
+
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) async {
+          if (options.method == 'GET' && options.path == '/chats/personal') {
+            final userId = options.queryParameters['user_id'];
+            if (userId == 'user-2') {
+              await firstRequest.future;
+              handler.resolve(
+                Response(
+                  requestOptions: options,
+                  statusCode: 200,
+                  data: {
+                    'status': 'ok',
+                    'data': {'chat_id': 'chat-first'},
+                  },
+                ),
+              );
+              return;
+            }
+
+            if (userId == 'user-3') {
+              await secondRequest.future;
+              handler.resolve(
+                Response(
+                  requestOptions: options,
+                  statusCode: 200,
+                  data: {
+                    'status': 'ok',
+                    'data': {'chat_id': 'chat-second'},
+                  },
+                ),
+              );
+              return;
+            }
+          }
+
+          fail('Unexpected request: ${options.method} ${options.path}');
+        },
+      ),
+    );
+
+    final bloc = ContactChatLaunchBloc(dio, chatsBloc);
+
+    final first = bloc.launchConversation(
+      userId: 'user-2',
+      displayName: 'Alice',
+    );
+    final second = bloc.launchConversation(
+      userId: 'user-3',
+      displayName: 'Bob',
+    );
+
+    secondRequest.complete();
+    await second;
+
+    expect(bloc.state.status, ContactChatLaunchStatus.navigating);
+    expect(bloc.state.activeUserId, 'user-3');
+    expect(bloc.state.resolvedChatId, 'chat-second');
+
+    firstRequest.complete();
+    await first;
+
+    expect(bloc.state.activeUserId, 'user-3');
+    expect(bloc.state.resolvedChatId, 'chat-second');
+
+    await bloc.close();
+    await chatsBloc.close();
+  });
 }

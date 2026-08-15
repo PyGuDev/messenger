@@ -17,7 +17,8 @@ class ChatsScreen extends StatefulWidget {
   State<ChatsScreen> createState() => _ChatsScreenState();
 }
 
-class _ChatsScreenState extends State<ChatsScreen> with SingleTickerProviderStateMixin {
+class _ChatsScreenState extends State<ChatsScreen>
+    with SingleTickerProviderStateMixin {
   final ScrollController _scrollController = ScrollController();
   late AnimationController _animationController;
   late Animation<double> _expandAnimation;
@@ -28,7 +29,7 @@ class _ChatsScreenState extends State<ChatsScreen> with SingleTickerProviderStat
     super.initState();
     context.read<ChatsBloc>().add(LoadChats());
     _scrollController.addListener(_onScroll);
-    
+
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 250),
@@ -59,18 +60,17 @@ class _ChatsScreenState extends State<ChatsScreen> with SingleTickerProviderStat
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
       context.read<ChatsBloc>().add(LoadMoreChats());
     }
   }
-
-
 
   String _formatTime(DateTime? time) {
     if (time == null) return '';
     final now = DateTime.now();
     final difference = now.difference(time);
-    
+
     if (difference.inDays == 0) {
       return DateFormat.Hm().format(time); // HH:mm
     } else if (difference.inDays == 1) {
@@ -98,7 +98,11 @@ class _ChatsScreenState extends State<ChatsScreen> with SingleTickerProviderStat
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.search, color: AppColors.textTertiary, size: 22),
+            icon: const Icon(
+              Icons.search,
+              color: AppColors.textTertiary,
+              size: 22,
+            ),
             onPressed: () {},
           ),
           const SizedBox(width: 8),
@@ -114,19 +118,25 @@ class _ChatsScreenState extends State<ChatsScreen> with SingleTickerProviderStat
               const SnackBar(content: Text('Chat created successfully!')),
             );
           } else if (state is ChatsError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(state.message)),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(state.message)));
           }
         },
-        buildWhen: (previous, current) => current is ChatsLoading || current is ChatsLoaded || current is ChatsError,
+        buildWhen: (previous, current) =>
+            current is ChatsLoading ||
+            current is ChatsLoaded ||
+            current is ChatsError,
         builder: (context, state) {
           if (state is ChatsLoading) {
             return const Center(child: CircularProgressIndicator());
           } else if (state is ChatsLoaded) {
             if (state.chats.isEmpty) {
               return Center(
-                child: Text(l10n.welcome, style: const TextStyle(color: AppColors.textSecondary)),
+                child: Text(
+                  l10n.welcome,
+                  style: const TextStyle(color: AppColors.textSecondary),
+                ),
               );
             }
             return RefreshIndicator(
@@ -135,9 +145,15 @@ class _ChatsScreenState extends State<ChatsScreen> with SingleTickerProviderStat
               },
               child: ListView.separated(
                 controller: _scrollController,
-                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
-                itemCount: state.hasReachedMax ? state.chats.length : state.chats.length + 1,
-                separatorBuilder: (context, index) => const Divider(height: 1, color: AppColors.borderDefault),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24.0,
+                  vertical: 8.0,
+                ),
+                itemCount: state.hasReachedMax
+                    ? state.chats.length
+                    : state.chats.length + 1,
+                separatorBuilder: (context, index) =>
+                    const Divider(height: 1, color: AppColors.borderDefault),
                 itemBuilder: (context, index) {
                   if (index >= state.chats.length) {
                     return const Center(
@@ -162,7 +178,9 @@ class _ChatsScreenState extends State<ChatsScreen> with SingleTickerProviderStat
                           ),
                           child: Center(
                             child: Text(
-                              chat.displayName.isNotEmpty ? chat.displayName[0].toUpperCase() : '?',
+                              chat.displayName.isNotEmpty
+                                  ? chat.displayName[0].toUpperCase()
+                                  : '?',
                               style: const TextStyle(
                                 color: AppColors.accentBlue,
                                 fontWeight: FontWeight.bold,
@@ -207,7 +225,10 @@ class _ChatsScreenState extends State<ChatsScreen> with SingleTickerProviderStat
                             if (chat.unreadCount > 0) ...[
                               const SizedBox(height: 4),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
                                 decoration: BoxDecoration(
                                   color: AppColors.accentBlue,
                                   borderRadius: BorderRadius.circular(10),
@@ -225,7 +246,10 @@ class _ChatsScreenState extends State<ChatsScreen> with SingleTickerProviderStat
                           ],
                         ),
                         onTap: () {
-                          context.push('/chat/${chat.id}?isGroup=${chat.type == 2}', extra: chat.displayName);
+                          context.push(
+                            '/chat/${chat.id}?isGroup=${chat.type == 2}',
+                            extra: chat.displayName,
+                          );
                         },
                       ),
                     ),
@@ -292,7 +316,10 @@ class _ChatsScreenState extends State<ChatsScreen> with SingleTickerProviderStat
           elevation: 4,
           shape: const CircleBorder(),
           child: RotationTransition(
-            turns: Tween<double>(begin: 0, end: 0.125).animate(_expandAnimation),
+            turns: Tween<double>(
+              begin: 0,
+              end: 0.125,
+            ).animate(_expandAnimation),
             child: const Icon(Icons.add, color: Colors.white, size: 28),
           ),
         ),
@@ -300,7 +327,11 @@ class _ChatsScreenState extends State<ChatsScreen> with SingleTickerProviderStat
     );
   }
 
-  Widget _buildFabOption({required IconData icon, required String label, required VoidCallback onTap}) {
+  Widget _buildFabOption({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -314,7 +345,7 @@ class _ChatsScreenState extends State<ChatsScreen> with SingleTickerProviderStat
             border: Border.all(color: AppColors.borderDefault),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.08),
+                color: Colors.black.withValues(alpha: 0.08),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
               ),

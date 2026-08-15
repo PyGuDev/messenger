@@ -67,4 +67,22 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get invalidCredentials => 'Не верное имя пользователя или пароль';
+
+  @override
+  String get unknownContact => 'Неизвестный контакт';
+
+  @override
+  String get contactsLoadFailed => 'Не удалось загрузить контакты';
+
+  @override
+  String get contactsPermissionDenied => 'Разрешите доступ к контактам';
+
+  @override
+  String get noMatchedContacts => 'Контакты Messenger не найдены';
+
+  @override
+  String get contactOnline => 'В сети';
+
+  @override
+  String get contactOffline => 'Не в сети';
 }

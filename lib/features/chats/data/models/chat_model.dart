@@ -15,7 +15,9 @@ class MemberModel extends Equatable {
     return MemberModel(
       userId: (json['user_id'] as String?) ?? '',
       role: (json['role'] as String?) ?? 'member',
-      addedAt: DateTime.parse((json['added_at'] as String?) ?? DateTime.now().toIso8601String()),
+      addedAt: DateTime.parse(
+        (json['added_at'] as String?) ?? DateTime.now().toIso8601String(),
+      ),
     );
   }
 
@@ -39,9 +41,18 @@ class LastMessageModel extends Equatable {
   factory LastMessageModel.fromJson(Map<String, dynamic> json) {
     return LastMessageModel(
       id: (json['id'] ?? json['ID'])?.toString() ?? '',
-      authorId: (json['author_id'] ?? json['AuthorID'] ?? json['authorId'])?.toString() ?? '',
+      authorId:
+          (json['author_id'] ?? json['AuthorID'] ?? json['authorId'])
+              ?.toString() ??
+          '',
       body: (json['body'] ?? json['Body'])?.toString() ?? '',
-      createdAt: DateTime.tryParse((json['created_at'] ?? json['CreatedAt'] ?? json['createdAt'])?.toString() ?? '') ?? DateTime.now(),
+      createdAt:
+          DateTime.tryParse(
+            (json['created_at'] ?? json['CreatedAt'] ?? json['createdAt'])
+                    ?.toString() ??
+                '',
+          ) ??
+          DateTime.now(),
     );
   }
 
@@ -75,7 +86,8 @@ class ChatModel extends Equatable {
       id: (json['id'] ?? json['ID'])?.toString() ?? '',
       type: (json['type'] ?? json['Type']) as int? ?? 1,
       title: (json['title'] ?? json['Title'])?.toString(),
-      members: ((json['members'] ?? json['Members']) as List?)
+      members:
+          ((json['members'] ?? json['Members']) as List?)
               ?.map((e) => MemberModel.fromJson(e as Map<String, dynamic>))
               .toList()
               .cast<MemberModel>() ??
@@ -88,8 +100,19 @@ class ChatModel extends Equatable {
         return null;
       }(),
       unreadCount: (json['unread_count'] ?? json['UnreadCount']) as int? ?? 0,
-      createdAt: DateTime.tryParse((json['created_at'] ?? json['CreatedAt'])?.toString() ?? '') ?? DateTime.now(),
-      updatedAt: DateTime.tryParse((json['updated_at'] ?? json['UpdatedAt'])?.toString() ?? '') ?? (DateTime.tryParse((json['created_at'] ?? json['CreatedAt'])?.toString() ?? '') ?? DateTime.now()),
+      createdAt:
+          DateTime.tryParse(
+            (json['created_at'] ?? json['CreatedAt'])?.toString() ?? '',
+          ) ??
+          DateTime.now(),
+      updatedAt:
+          DateTime.tryParse(
+            (json['updated_at'] ?? json['UpdatedAt'])?.toString() ?? '',
+          ) ??
+          (DateTime.tryParse(
+                (json['created_at'] ?? json['CreatedAt'])?.toString() ?? '',
+              ) ??
+              DateTime.now()),
     );
   }
 
@@ -118,21 +141,20 @@ class ChatModel extends Equatable {
   // Helper to get display name
   String get displayName {
     if (type == 2 && title != null) return title!;
-    // For personal chats, we might need the other member's name, 
+    // For personal chats, we might need the other member's name,
     // but for now we'll just return 'Chat' or similar if title is null
     return title ?? 'Private Chat';
   }
 
   @override
   List<Object?> get props => [
-        id,
-        type,
-        title,
-        members,
-        lastMessage,
-        unreadCount,
-        createdAt,
-        updatedAt,
-      ];
+    id,
+    type,
+    title,
+    members,
+    lastMessage,
+    unreadCount,
+    createdAt,
+    updatedAt,
+  ];
 }
-

@@ -3,6 +3,11 @@
 **Base URL:** `http://localhost:8003`
 **Swagger UI:** `http://localhost:8003/swagger/`
 
+Значения выше относятся к локальному backend. Flutter-клиент получает REST
+адрес Chat Service из `APP_CHAT_BASE_URL`, а WebSocket address — из
+`APP_WS_BASE_URL`. Фактический порядок источников конфигурации описан в
+[`README.md`](../README.md#runtime-configuration).
+
 ## Аутентификация
 
 Все защищённые эндпоинты требуют JWT-токен в заголовке:
@@ -248,6 +253,13 @@ JWT подписан алгоритмом HS256. Поле `sub` в payload со�
 |--------|---------|
 | 404 Not Found | Личный чат не найден |
 | 422 Validation | `user_id` не передан или совпадает с текущим пользователем |
+
+**Поведение Flutter-клиента:** успешный ответ переиспользует возвращённый
+`chat_id`. Только `404 Not Found` разрешает клиенту отправить `POST /chats` для
+создания Direct Chat. Transport error, некорректный ответ или другой status
+оставляют launch flow на recoverable экране и не запускают создание. Повторные
+нажатия схлопываются только внутри одного активного client launch flow;
+глобальная уникальность Direct Chat должна обеспечиваться backend.
 
 ---
 

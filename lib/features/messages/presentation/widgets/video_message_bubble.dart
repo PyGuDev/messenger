@@ -83,10 +83,11 @@ class _VideoMessageBubbleState extends State<VideoMessageBubble> {
           .listen(
             (response) {
               if (response is DownloadProgress) {
-                if (mounted)
+                if (mounted) {
                   setState(() {
                     _downloadProgress = response.progress ?? 0.0;
                   });
+                }
               } else if (response is FileInfo) {
                 if (mounted) {
                   setState(() {
@@ -100,25 +101,27 @@ class _VideoMessageBubbleState extends State<VideoMessageBubble> {
             },
             onError: (e) {
               debugPrint('VideoMessageBubble download error: $e');
-              if (mounted)
+              if (mounted) {
                 setState(() {
                   _isDownloading = false;
                 });
+              }
             },
           );
     } catch (e) {
       debugPrint('VideoMessageBubble download error: $e');
-      if (mounted)
+      if (mounted) {
         setState(() {
           _isDownloading = false;
         });
+      }
     }
   }
 
   Future<void> _initController(File file) async {
     try {
       String finalPath = file.path;
-      if (!finalPath.toLowerCase().endsWith('.mp4') && 
+      if (!finalPath.toLowerCase().endsWith('.mp4') &&
           !finalPath.toLowerCase().endsWith('.mov')) {
         final newFile = File('$finalPath.mp4');
         if (!await newFile.exists()) {
@@ -130,7 +133,9 @@ class _VideoMessageBubbleState extends State<VideoMessageBubble> {
 
       final f = File(finalPath);
       final size = await f.length();
-      debugPrint('VideoMessageBubble: initializing video from $finalPath, size: $size bytes');
+      debugPrint(
+        'VideoMessageBubble: initializing video from $finalPath, size: $size bytes',
+      );
 
       _controller = VideoPlayerController.file(f);
       await _controller!.initialize();

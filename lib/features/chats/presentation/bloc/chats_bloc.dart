@@ -205,7 +205,10 @@ class ChatsBloc extends Bloc<ChatsEvent, ChatsState> {
     }
   }
 
-  Future<void> _onCreateGroupChat(CreateGroupChat event, Emitter<ChatsState> emit) async {
+  Future<void> _onCreateGroupChat(
+    CreateGroupChat event,
+    Emitter<ChatsState> emit,
+  ) async {
     try {
       final response = await _dio.post(
         '/chats',
@@ -220,7 +223,9 @@ class ChatsBloc extends Bloc<ChatsEvent, ChatsState> {
         throw ChatApiException.fromJson(response.data);
       }
 
-      final chatId = response.data['data'] != null ? response.data['data']['chat_id']?.toString() : null;
+      final chatId = response.data['data'] != null
+          ? response.data['data']['chat_id']?.toString()
+          : null;
       if (chatId != null) {
         emit(ChatCreatedSuccess(chatId));
       }
@@ -243,12 +248,13 @@ class ChatsBloc extends Bloc<ChatsEvent, ChatsState> {
         final payload = eventData['payload'];
         if (payload == null) return;
 
-        final chatId = (payload['chat_id'] ??
-                payload['ChatID'] ??
-                payload['chatId'] ??
-                payload['id'] ??
-                payload['ID'])
-            ?.toString();
+        final chatId =
+            (payload['chat_id'] ??
+                    payload['ChatID'] ??
+                    payload['chatId'] ??
+                    payload['id'] ??
+                    payload['ID'])
+                ?.toString();
         final messageData = payload['message'];
         if (messageData == null || chatId == null) return;
 
@@ -292,12 +298,13 @@ class ChatsBloc extends Bloc<ChatsEvent, ChatsState> {
         final payload = eventData['payload'];
         if (payload == null) return;
 
-        final chatId = (payload['chat_id'] ??
-                payload['ChatID'] ??
-                payload['chatId'] ??
-                payload['id'] ??
-                payload['ID'])
-            ?.toString();
+        final chatId =
+            (payload['chat_id'] ??
+                    payload['ChatID'] ??
+                    payload['chatId'] ??
+                    payload['id'] ??
+                    payload['ID'])
+                ?.toString();
         final readerId = payload['user_id']?.toString();
         if (chatId == null) return;
 

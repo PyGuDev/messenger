@@ -21,18 +21,20 @@ class _VideoFullscreenViewerState extends State<VideoFullscreenViewer> {
   void initState() {
     super.initState();
     _controller = VideoPlayerController.file(widget.videoFile)
-      ..initialize().then((_) {
-        _controller.setLooping(true);
-        _controller.setVolume(1.0);
-        _controller.play();
-        if (mounted) {
-          setState(() {
-            _isInitialized = true;
+      ..initialize()
+          .then((_) {
+            _controller.setLooping(true);
+            _controller.setVolume(1.0);
+            _controller.play();
+            if (mounted) {
+              setState(() {
+                _isInitialized = true;
+              });
+            }
+          })
+          .catchError((e) {
+            debugPrint('VideoFullscreenViewer init error: $e');
           });
-        }
-      }).catchError((e) {
-        debugPrint('VideoFullscreenViewer init error: $e');
-      });
 
     _controller.addListener(() {
       if (mounted) setState(() {});
@@ -61,7 +63,7 @@ class _VideoFullscreenViewerState extends State<VideoFullscreenViewer> {
           Positioned.fill(
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
-              child: Container(color: Colors.black.withOpacity(0.5)),
+              child: Container(color: Colors.black.withValues(alpha: 0.5)),
             ),
           ),
           SafeArea(
@@ -131,7 +133,7 @@ class _VideoFullscreenViewerState extends State<VideoFullscreenViewer> {
                       width: 36,
                       height: 36,
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
+                        color: Colors.white.withValues(alpha: 0.2),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
@@ -161,7 +163,7 @@ class _VideoFullscreenViewerState extends State<VideoFullscreenViewer> {
                                   ? _formatDuration(_controller.value.position)
                                   : "0:00",
                               style: TextStyle(
-                                color: Colors.white.withOpacity(0.7),
+                                color: Colors.white.withValues(alpha: 0.7),
                                 fontSize: 13,
                               ),
                             ),
@@ -177,8 +179,8 @@ class _VideoFullscreenViewerState extends State<VideoFullscreenViewer> {
                                     overlayRadius: 14,
                                   ),
                                   activeTrackColor: const Color(0xFF573AFE),
-                                  inactiveTrackColor: Colors.white.withOpacity(
-                                    0.2,
+                                  inactiveTrackColor: Colors.white.withValues(
+                                    alpha: 0.2,
                                   ),
                                   thumbColor: Colors.white,
                                 ),
@@ -214,7 +216,7 @@ class _VideoFullscreenViewerState extends State<VideoFullscreenViewer> {
                                   ? _formatDuration(_controller.value.duration)
                                   : "0:00",
                               style: TextStyle(
-                                color: Colors.white.withOpacity(0.7),
+                                color: Colors.white.withValues(alpha: 0.7),
                                 fontSize: 13,
                               ),
                             ),
@@ -236,7 +238,7 @@ class _VideoFullscreenViewerState extends State<VideoFullscreenViewer> {
                                 width: 44,
                                 height: 44,
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.15),
+                                  color: Colors.white.withValues(alpha: 0.15),
                                   shape: BoxShape.circle,
                                 ),
                                 child: Icon(

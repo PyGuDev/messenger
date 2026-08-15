@@ -19,5 +19,11 @@
   "logoutConfirmation": "Вы уверены, что хотите выйти?",
   "createChat": "Создать чат",
   "enterUserId": "Введите ID пользователя",
-  "invalidCredentials": "Не верное имя пользователя или пароль"
+  "invalidCredentials": "Не верное имя пользователя или пароль",
+  "unknownContact": "Неизвестный контакт",
+  "contactsLoadFailed": "Не удалось загрузить контакты",
+  "contactsPermissionDenied": "Разрешите доступ к контактам",
+  "noMatchedContacts": "Контакты Messenger не найдены",
+  "contactOnline": "В сети",
+  "contactOffline": "Не в сети"
 }

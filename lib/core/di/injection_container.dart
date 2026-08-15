@@ -25,6 +25,8 @@ import '../local/database_provider.dart';
 import '../local/database_helper.dart';
 import '../cache/media_cache_service.dart';
 import '../cache/profile_cache.dart';
+import '../contacts/matched_contacts_adapters.dart';
+import '../../shared/contacts/matched_contacts_bloc.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -104,6 +106,12 @@ Future<ConfigurationErrorState?> init() async {
   sl.registerLazySingleton<UserService>(
     () => UserService(sl<Dio>(instanceName: 'authDio')),
   );
+  sl.registerLazySingleton<DeviceContactsGateway>(
+    () => const FlutterDeviceContactsGateway(),
+  );
+  sl.registerLazySingleton<MessengerUserLookup>(
+    () => UserServiceMessengerUserLookup(sl<UserService>()),
+  );
   sl.registerLazySingleton<FileService>(
     () => FileService(sl<Dio>(instanceName: 'fileDio'), sl()),
   );
@@ -140,6 +148,12 @@ Future<ConfigurationErrorState?> init() async {
     () => ContactChatLaunchBloc(
       sl<Dio>(instanceName: 'chatDio'),
       sl<ChatsBloc>(),
+    ),
+  );
+  sl.registerFactory<MatchedContactsBloc>(
+    () => MatchedContactsBloc(
+      sl<DeviceContactsGateway>(),
+      sl<MessengerUserLookup>(),
     ),
   );
   sl.registerFactory<MessagesBloc>(
