@@ -64,7 +64,7 @@
 - [X] T014 [US1] Scope chat loading and retry flows to the route-bound session in `lib/features/messages/presentation/screens/messages_screen.dart` and `lib/core/navigation/router.dart`
 - [X] T015 [US1] Reset or dispose draft, media, and camera-related state on chat exit/switch in `lib/features/messages/presentation/screens/messages_screen.dart`, `lib/core/network/camera_service.dart`, and `lib/core/network/websocket_service.dart`
 - [X] T016 [US1] Add the offline-unavailable UX state and localized copy for first-sync failures in `lib/features/messages/presentation/screens/messages_screen.dart` and `lib/l10n/`
-- [ ] T017 [US1] Update chat session behavior documentation for cache restore and per-chat state ownership in `specs/001-flutter-stabilization/contracts/chat-session-behavior.md` and `docs/chat_api.md`
+- [X] T017 [US1] Update chat session behavior documentation for cache restore and per-chat state ownership in `specs/001-flutter-stabilization/contracts/chat-session-behavior.md` and `docs/chat_api.md`
 
 **Checkpoint**: User Story 1 is independently functional when cached restore, refresh reconciliation, and session isolation all pass without cross-chat leakage.
 

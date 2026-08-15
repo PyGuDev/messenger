@@ -391,6 +391,30 @@ JWT подписан алгоритмом HS256. Поле `sub` в payload со�
 
 **Пагинация:** Для загрузки следующей страницы используйте `created_at` последнего сообщения как `before`.
 
+### Flutter-клиент: Message Timeline Cache и Chat Session
+
+Этот раздел описывает клиентское поведение и не добавляет server endpoint.
+
+- `Message Timeline Cache` принадлежит одному `chat_id`: при открытии
+  `/chat/:id` Flutter сначала отображает непустую локальную timeline только
+  этого Chat, затем запрашивает первую remote-страницу истории.
+- Перед сохранением remote-страницы клиент исключает Messages другого `chat_id`
+  и устраняет повторы по `client_message_id` (если он есть) либо server message
+  ID. При совпадении остаётся запись с более поздним `updated_at`; результат
+  заменяет cache rows только данного Chat.
+- Такой refresh не объединяет cached и fetched timeline: remote-страница
+  заменяет cache и может удалить local Messages со status `sending` или
+  `failed`. Это известное ограничение Flutter-клиента.
+- У клиента нет persisted successful-sync marker. При пустом cache любая
+  неудача initial history refresh — offline, transport, backend или parsing —
+  показывает `MessagesOfflineUnavailable`. Если cache непустой, его timeline
+  остаётся видимой при неудачном refresh.
+- Каждый маршрут `/chat/:id` создаёт отдельный `MessagesBloc`, camera и
+  voice-recording services. Bloc принимает только события и WebSocket events
+  своего Chat; при выходе subscription отменяется, а route-local draft, reply,
+  media и camera state освобождаются. Общее WebSocket connection приложения при
+  этом не отключается.
+
 ---
 
 ### PATCH /api/v1/chats/:chatId/messages/:messageId

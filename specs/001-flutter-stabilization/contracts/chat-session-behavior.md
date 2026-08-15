@@ -2,20 +2,49 @@
 
 ## Purpose
 
-Defines the expected client-side behavior for message timeline restore, per-chat state isolation, and contact-to-chat launch during the stabilization effort.
+Определяет ожидаемое client-side поведение восстановления message timeline,
+изоляции состояния каждого Chat и запуска Chat из контакта в рамках
+стабилизации.
 
 ## 1. Timeline Restore Contract
 
-- A chat with previously synced history must restore its last successful local timeline before or alongside network refresh.
-- A chat with no prior successful sync and no connectivity must render an explicit "history unavailable offline" state.
-- Cached and fetched messages must reconcile by chat ownership and message identity so duplicates and cross-chat leakage do not appear.
-- Session-specific draft/media/camera state must not persist into another chat after navigation.
+- `Message Timeline Cache` читается и записывается по `chatId`; чтение cache
+  одного `Chat Session` никогда не должно вернуть записи другого Chat.
+- При входе в Chat Flutter-клиент читает непустую local timeline до запроса
+  первой remote-страницы history. Cached timeline остаётся видимой во время
+  refresh.
+- До замены cached первой страницы Chat клиент исключает полученные записи, у
+  которых `chat_id` отличается от route `chatId`. Затем он сохраняет по одной
+  записи на identity Message: `client_message_id`, если он есть, иначе server
+  message ID; при совпадении identity выбирается запись с более поздним
+  `updated_at`. Получившаяся страница в порядке от новых к старым заменяет
+  только cache rows этого Chat.
+- Это не является reconciliation cached и fetched timeline: текущий refresh
+  заменяет cache только remote-страницей и поэтому может удалить local
+  Messages со status `sending` или `failed`. Это известное отклонение текущего
+  продукта, а не гарантия сохранения optimistic Messages.
+- У текущего клиента нет persisted successful-sync marker. Поэтому пустой cache
+  означает либо первое открытие, либо ранее синхронизированный Chat без cached
+  записей. Если cache пуст и history request не завершился — включая отсутствие
+  connectivity, transport, backend или parsing error — UI показывает
+  chat-specific state `MessagesOfflineUnavailable`. Непустая cached timeline
+  остаётся видимой при ошибке refresh.
+- Session-specific draft, reply, emoji, voice/video recording и camera state не
+  должны сохраняться в другом Chat после navigation.
 
 ## 2. Session Ownership Contract
 
-- `MessagesBloc` ownership is route/session scoped, not app-global.
-- Entering `/chat/:id` creates or binds exactly one message session for that chat.
-- Leaving the route tears down WebSocket listeners, media-recording state, and any session-only resources associated with that chat instance.
+- `MessagesBloc` принадлежит route/session scope, а не app-global scope.
+- Вход на `/chat/:id` создаёт ровно один `MessagesBloc`, camera service и
+  voice-recording service для этого `Chat Session`; их provider subtree имеет
+  ключ `chatId`.
+- `MessagesBloc` принимает `ChatSessionEvent`, только если event `chatId`
+  совпадает с Chat Session. Его WebSocket subscription отфильтрована по тому же
+  Chat и отменяется при закрытии bloc.
+- Выход из route освобождает route-local camera и voice-recording services.
+  При dispose message screen очищает draft, reply target, recording flags и
+  связанные controllers. Application-wide WebSocket connection не закрывается
+  только из-за завершения Chat Session.
 
 ## 3. Contact-to-Chat Launch Contract
 
