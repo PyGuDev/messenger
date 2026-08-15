@@ -1,8 +1,12 @@
 # Feature Specification: Flutter Stabilization Plan
 
-**Feature Branch**: `001-message-actions`  
-**Created**: 2026-04-22  
-**Status**: Draft  
+**Feature Branch**: `001-message-actions`
+
+**Created**: 2026-04-22
+
+**Status**: Partially Implemented
+
+**Current Behavior**: [Product Baseline 002](../002-document-current-product/spec.md)
 **Input**: User description: "https://github.com/PyGuDev/messenger/issues/32"
 
 ## Clarifications
@@ -135,3 +139,4 @@ As a product owner preparing releases, I want runtime configuration, diagnostics
 - Update [README.md](/Users/admin/myprojects/messenger/README.md) if environment configuration or testing workflow expectations change for contributors.
 - Keep [docs/chat_api.md](/Users/admin/myprojects/messenger/docs/chat_api.md) aligned with any messaging contract or error-handling changes.
 - Keep [docs/FRONTEND_API_GUIDE.md](/Users/admin/myprojects/messenger/docs/FRONTEND_API_GUIDE.md) aligned with any file upload, download, or environment-related behavior changes.
+- Implemented user-visible behavior is described by [Product Baseline 002](../002-document-current-product/spec.md). This feature specification remains authoritative only for unfinished stabilization requirements tracked in `tasks.md`.

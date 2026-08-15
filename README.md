@@ -20,10 +20,25 @@ contacts, profile, and network state.
   automated test updates in `test/`.
 - New feature work should preserve the existing feature-first structure.
 
+## Documentation
+
+- [Documentation index](./docs/README.md)
+- [Current Product Baseline](./specs/002-document-current-product/spec.md)
+- [Domain glossary](./CONTEXT.md)
+- [Chat Service API](./docs/chat_api.md)
+- [File Service API](./docs/FRONTEND_API_GUIDE.md)
+- [Auth/Profile client expectations](./docs/auth_api.md)
+
 ## Runtime Configuration
 
-The client now reads all backend endpoints from Dart defines at startup and
-blocks network-dependent flows when any required value is missing or invalid.
+The client resolves all backend endpoints at startup and blocks
+network-dependent flows when any required value is missing or invalid.
+
+The current implementation first reads an optional `.env` asset and then falls
+back to Dart defines. If both contain the same key, `.env` currently wins. This
+precedence is recorded as a Known Deviation in the Product Baseline; the agreed
+target is for Dart defines to override `.env`, with `.env` used only for local
+fallback.
 
 Use these defines for local or release verification:
 
@@ -39,9 +54,3 @@ flutter run \
 If one of these values is missing or malformed, the app renders a blocking
 configuration error screen before authenticated networking, chat loading, or
 file transfer flows begin.
-
-## References
-
-- [Flutter documentation](https://docs.flutter.dev/)
-- [Chat API contract](./docs/chat_api.md)
-- [File service integration guide](./docs/FRONTEND_API_GUIDE.md)

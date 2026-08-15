@@ -2,6 +2,7 @@
 
 **Branch**: `001-message-actions` | **Date**: 2026-04-22 | **Spec**: [spec.md](./spec.md)
 **Input**: Feature specification from `/specs/001-flutter-stabilization/spec.md`
+**Status**: Partially Implemented; current product behavior is indexed by [Product Baseline 002](../002-document-current-product/spec.md)
 
 ## Summary
 
