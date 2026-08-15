@@ -486,28 +486,40 @@ void main() {
         _expectContactProfileToNavigateToChat(tester, existingChat: false),
   );
 
-  testWidgets('each Chat Session receives and disposes its own MessagesBloc', (
+  testWidgets('leaving a Chat route disposes its route-owned MessagesBloc', (
     tester,
   ) async {
     final created = <_TrackingMessagesBloc>[];
     MessagesBloc? observed;
 
-    Widget session(String chatId) => MaterialApp(
-      home: buildChatSession(
-        chatId: chatId,
-        createMessagesBloc: (_) {
-          final bloc = _TrackingMessagesBloc(chatId);
-          created.add(bloc);
-          return bloc;
-        },
-        child: _BlocProbe((bloc) => observed = bloc),
-      ),
+    final testRouter = GoRouter(
+      initialLocation: '/chat/chat-1',
+      routes: [
+        GoRoute(path: '/chats', builder: (_, _) => const SizedBox.shrink()),
+        GoRoute(
+          path: '/chat/:id',
+          builder: (_, state) {
+            final chatId = state.pathParameters['id']!;
+            return buildChatSession(
+              chatId: chatId,
+              createMessagesBloc: (_) {
+                final bloc = _TrackingMessagesBloc(chatId);
+                created.add(bloc);
+                return bloc;
+              },
+              child: _BlocProbe((bloc) => observed = bloc),
+            );
+          },
+        ),
+      ],
     );
+    addTearDown(testRouter.dispose);
 
-    await tester.pumpWidget(session('chat-1'));
+    await tester.pumpWidget(MaterialApp.router(routerConfig: testRouter));
     final first = observed;
 
-    await tester.pumpWidget(session('chat-2'));
+    testRouter.go('/chat/chat-2');
+    await tester.pumpAndSettle();
     final second = observed;
 
     expect(created, hasLength(2));
@@ -516,7 +528,8 @@ void main() {
     expect(second, isNot(same(first)));
     expect(created.first.closedByRoute, isTrue);
 
-    await tester.pumpWidget(const SizedBox.shrink());
+    testRouter.go('/chats');
+    await tester.pumpAndSettle();
     expect(created.last.closedByRoute, isTrue);
   });
 

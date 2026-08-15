@@ -102,7 +102,7 @@
 ### Tests for User Story 3
 
 - [X] T025 [P] [US3] Add runtime environment validation and blocking configuration error coverage in `test/core/network/runtime_environment_test.dart`
-- [ ] T026 [P] [US3] Replace the placeholder smoke test with messaging- and navigation-relevant coverage in `test/widget_test.dart` and `test/navigation/chat_route_test.dart`
+- [X] T026 [P] [US3] Replace the placeholder smoke test with messaging- and navigation-relevant coverage in `test/widget_test.dart` and `test/navigation/chat_route_test.dart`
 
 ### Implementation for User Story 3
 
@@ -226,6 +226,6 @@ Task: "Remove hardcoded endpoint usage from transport clients and consume the va
 - All tasks use the required checklist format with sequential task IDs, explicit story labels where needed, and concrete file paths.
 - Tests are included in every user story because each story changes observable behavior and documented contracts.
 - `docs/chat_api.md`, `docs/FRONTEND_API_GUIDE.md`, and `README.md` stay coupled to the behavior they describe; do not defer those updates to a later unrelated change.
-- Reconciled against the working tree on 2026-08-16. `flutter test` passed 38 tests and `flutter analyze` reported no issues.
-- T017, T019, and T026 remain unchecked because their implementation or behavioral coverage is partial. T010 and T013-T016 now cover route-owned `MessagesBloc` instances, session-scoped media teardown, localized first-sync offline copy, and repeated Chat switching without draft/reply/recording leakage; pagination coverage remains incomplete.
+- Reconciled against the working tree on 2026-08-16. `flutter test` passed 44 tests and `flutter analyze` reported no issues.
+- T010 and T013-T016 now cover route-owned `MessagesBloc` instances, session-scoped media teardown, localized first-sync offline copy, and repeated Chat switching without draft/reply/recording leakage; pagination coverage remains incomplete.
 - T031 remains open because the manual quickstart journeys were not executed. T033 remains open while runtime source precedence differs from the target contract and final backend contract verification is pending.
