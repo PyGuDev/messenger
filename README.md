@@ -34,11 +34,10 @@ contacts, profile, and network state.
 The client resolves all backend endpoints at startup and blocks
 network-dependent flows when any required value is missing or invalid.
 
-The current implementation first reads an optional `.env` asset and then falls
-back to Dart defines. If both contain the same key, `.env` currently wins. This
-precedence is recorded as a Known Deviation in the Product Baseline; the agreed
-target is for Dart defines to override `.env`, with `.env` used only for local
-fallback.
+Dart defines take precedence over the optional `.env` asset. Use `.env` only as
+a local fallback for keys that are not supplied through `--dart-define`. An
+empty or malformed Dart define is treated as configuration input and therefore
+causes the blocking configuration error rather than falling back to `.env`.
 
 Use these defines for local or release verification:
 

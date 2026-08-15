@@ -5,8 +5,9 @@
 
 Значения выше относятся к локальному backend. Flutter-клиент получает REST
 адрес Chat Service из `APP_CHAT_BASE_URL`, а WebSocket address — из
-`APP_WS_BASE_URL`. Фактический порядок источников конфигурации описан в
-[`README.md`](../README.md#runtime-configuration).
+`APP_WS_BASE_URL`. `--dart-define` имеет приоритет над optional `.env` asset;
+`.env` используется только как local fallback. Полная инструкция и validation
+rules описаны в [`README.md`](../README.md#runtime-configuration).
 
 ## Аутентификация
 

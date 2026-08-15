@@ -24,8 +24,26 @@ class RuntimeEnvironmentProfile {
   });
 
   factory RuntimeEnvironmentProfile.fromEnvironment() {
+    const undefined = '__runtime_environment_undefined__';
+    final dartDefines = Map<String, String>.fromEntries(
+      _supportedKeys.map(
+        (key) =>
+            MapEntry(key, String.fromEnvironment(key, defaultValue: undefined)),
+      ),
+    )..removeWhere((_, value) => value == undefined);
+
+    return RuntimeEnvironmentProfile.fromSources(
+      dotenvValues: dotenv.env,
+      dartDefines: dartDefines,
+    );
+  }
+
+  factory RuntimeEnvironmentProfile.fromSources({
+    required Map<String, String> dotenvValues,
+    required Map<String, String> dartDefines,
+  }) {
     String getEnv(String key, {String defaultValue = ''}) {
-      return dotenv.env[key] ?? String.fromEnvironment(key, defaultValue: defaultValue);
+      return dartDefines[key] ?? dotenvValues[key] ?? defaultValue;
     }
 
     return RuntimeEnvironmentProfile(
@@ -36,6 +54,14 @@ class RuntimeEnvironmentProfile {
       wsBaseUrl: getEnv('APP_WS_BASE_URL'),
     );
   }
+
+  static const _supportedKeys = <String>[
+    'APP_ENVIRONMENT_NAME',
+    'APP_AUTH_BASE_URL',
+    'APP_CHAT_BASE_URL',
+    'APP_FILE_BASE_URL',
+    'APP_WS_BASE_URL',
+  ];
 
   ConfigurationErrorState? validate() {
     final invalidKeys = <String>[];

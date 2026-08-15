@@ -121,7 +121,7 @@
 
 - [ ] T031 [P] Run the full stabilization verification flow from `specs/001-flutter-stabilization/quickstart.md`
 - [X] T032 Fix analyzer warnings and cleanup remaining stabilization-related issues in `lib/` and `test/` surfaced by `flutter analyze`
-- [ ] T033 [P] Confirm final contract and contributor documentation alignment in `README.md`, `docs/chat_api.md`, and `docs/FRONTEND_API_GUIDE.md`
+- [X] T033 [P] Confirm final contract and contributor documentation alignment in `README.md`, `docs/chat_api.md`, and `docs/FRONTEND_API_GUIDE.md`
 
 ---
 
@@ -228,4 +228,4 @@ Task: "Remove hardcoded endpoint usage from transport clients and consume the va
 - `docs/chat_api.md`, `docs/FRONTEND_API_GUIDE.md`, and `README.md` stay coupled to the behavior they describe; do not defer those updates to a later unrelated change.
 - Reconciled against the working tree on 2026-08-16. `flutter test` passed 44 tests and `flutter analyze` reported no issues.
 - T010 and T013-T016 now cover route-owned `MessagesBloc` instances, session-scoped media teardown, localized first-sync offline copy, and repeated Chat switching without draft/reply/recording leakage; pagination coverage remains incomplete.
-- T031 remains open because the manual quickstart journeys were not executed. T033 remains open while runtime source precedence differs from the target contract and final backend contract verification is pending.
+- T031 remains open because the manual quickstart journeys were not executed. T033 reconciled the client-used chat routes with `docs/chat_api.md` and corrected runtime source precedence so Dart defines override `.env`; independent backend verification remains part of the baseline's manual verification gate.

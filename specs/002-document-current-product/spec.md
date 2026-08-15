@@ -269,8 +269,6 @@ settings, изменить каждое редактируемое поле Prof
 11. Direct Chat lookup/create не является атомарной server-side операцией;
     client-side защита блокирует повторы только внутри одного launch flow.
 12. Call/video controls вне Calls tab выглядят доступными, хотя ничего не делают.
-13. При наличии `.env` его значения сейчас имеют приоритет над Dart defines,
-    несмотря на прежнее описание запуска только через `--dart-define`.
 
 ## Verification Record
 
