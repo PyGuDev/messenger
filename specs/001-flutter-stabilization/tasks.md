@@ -60,10 +60,10 @@
 
 - [X] T011 [P] [US1] Canonicalize message and attachment persistence shape in `lib/features/messages/data/models/message_model.dart` and `lib/features/messages/data/datasources/messages_local_data_source.dart`
 - [X] T012 [US1] Update message cache reads/writes and merge rules to enforce chat ownership and deterministic restore in `lib/features/messages/data/datasources/messages_local_data_source.dart` and `lib/features/messages/presentation/bloc/messages_bloc.dart`
-- [ ] T013 [US1] Refactor `MessagesBloc` session state and teardown behavior for active-chat ownership in `lib/features/messages/presentation/bloc/messages_bloc.dart` and `lib/features/messages/presentation/bloc/messages_state.dart`
+- [X] T013 [US1] Refactor `MessagesBloc` session state and teardown behavior for active-chat ownership in `lib/features/messages/presentation/bloc/messages_bloc.dart` and `lib/features/messages/presentation/bloc/messages_state.dart`
 - [X] T014 [US1] Scope chat loading and retry flows to the route-bound session in `lib/features/messages/presentation/screens/messages_screen.dart` and `lib/core/navigation/router.dart`
-- [ ] T015 [US1] Reset or dispose draft, media, and camera-related state on chat exit/switch in `lib/features/messages/presentation/screens/messages_screen.dart`, `lib/core/network/camera_service.dart`, and `lib/core/network/websocket_service.dart`
-- [ ] T016 [US1] Add the offline-unavailable UX state and localized copy for first-sync failures in `lib/features/messages/presentation/screens/messages_screen.dart` and `lib/l10n/`
+- [X] T015 [US1] Reset or dispose draft, media, and camera-related state on chat exit/switch in `lib/features/messages/presentation/screens/messages_screen.dart`, `lib/core/network/camera_service.dart`, and `lib/core/network/websocket_service.dart`
+- [X] T016 [US1] Add the offline-unavailable UX state and localized copy for first-sync failures in `lib/features/messages/presentation/screens/messages_screen.dart` and `lib/l10n/`
 - [ ] T017 [US1] Update chat session behavior documentation for cache restore and per-chat state ownership in `specs/001-flutter-stabilization/contracts/chat-session-behavior.md` and `docs/chat_api.md`
 
 **Checkpoint**: User Story 1 is independently functional when cached restore, refresh reconciliation, and session isolation all pass without cross-chat leakage.
@@ -227,5 +227,5 @@ Task: "Remove hardcoded endpoint usage from transport clients and consume the va
 - Tests are included in every user story because each story changes observable behavior and documented contracts.
 - `docs/chat_api.md`, `docs/FRONTEND_API_GUIDE.md`, and `README.md` stay coupled to the behavior they describe; do not defer those updates to a later unrelated change.
 - Reconciled against the working tree on 2026-08-16. `flutter test` passed 38 tests and `flutter analyze` reported no issues.
-- T013, T015, T016, T017, T019, and T026 remain unchecked because their implementation or behavioral coverage is partial. T010 now covers creation and disposal of route-scoped `MessagesBloc` instances; voice recording teardown remains incomplete, offline copy is not localized, and pagination/full session-switch journeys still lack coverage.
+- T017, T019, and T026 remain unchecked because their implementation or behavioral coverage is partial. T010 and T013-T016 now cover route-owned `MessagesBloc` instances, session-scoped media teardown, localized first-sync offline copy, and repeated Chat switching without draft/reply/recording leakage; pagination coverage remains incomplete.
 - T031 remains open because the manual quickstart journeys were not executed. T033 remains open while runtime source precedence differs from the target contract and final backend contract verification is pending.

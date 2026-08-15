@@ -7,36 +7,50 @@ abstract class MessagesEvent extends Equatable {
   List<Object?> get props => [];
 }
 
-class LoadMessages extends MessagesEvent {
+abstract class ChatSessionEvent extends MessagesEvent {
+  String get chatId;
+
+  const ChatSessionEvent();
+}
+
+class LoadMessages extends ChatSessionEvent {
+  @override
   final String chatId;
-  
+
   const LoadMessages(this.chatId);
 
   @override
   List<Object?> get props => [chatId];
 }
 
-class LoadMoreMessages extends MessagesEvent {
+class LoadMoreMessages extends ChatSessionEvent {
+  @override
   final String chatId;
-  
+
   const LoadMoreMessages(this.chatId);
 
   @override
   List<Object?> get props => [chatId];
 }
 
-class SendMessage extends MessagesEvent {
+class SendMessage extends ChatSessionEvent {
+  @override
   final String chatId;
   final String text;
   final String? replyToMessageId;
 
-  const SendMessage({required this.chatId, required this.text, this.replyToMessageId});
+  const SendMessage({
+    required this.chatId,
+    required this.text,
+    this.replyToMessageId,
+  });
 
   @override
   List<Object?> get props => [chatId, text, replyToMessageId];
 }
 
-class ResendMessage extends MessagesEvent {
+class ResendMessage extends ChatSessionEvent {
+  @override
   final String chatId;
   final String clientMessageId;
 
@@ -46,7 +60,8 @@ class ResendMessage extends MessagesEvent {
   List<Object?> get props => [chatId, clientMessageId];
 }
 
-class MarkMessagesAsRead extends MessagesEvent {
+class MarkMessagesAsRead extends ChatSessionEvent {
+  @override
   final String chatId;
   final DateTime upTo;
 
@@ -64,7 +79,8 @@ class OnWebSocketEvent extends MessagesEvent {
   List<Object?> get props => [event];
 }
 
-class SendVoiceMessage extends MessagesEvent {
+class SendVoiceMessage extends ChatSessionEvent {
+  @override
   final String chatId;
   final String filePath;
   final Duration duration;
@@ -81,29 +97,40 @@ class SendVoiceMessage extends MessagesEvent {
   List<Object?> get props => [chatId, filePath, duration, replyToMessageId];
 }
 
-class EditMessage extends MessagesEvent {
+class EditMessage extends ChatSessionEvent {
+  @override
   final String chatId;
   final String messageId;
   final String newBody;
 
-  const EditMessage({required this.chatId, required this.messageId, required this.newBody});
+  const EditMessage({
+    required this.chatId,
+    required this.messageId,
+    required this.newBody,
+  });
 
   @override
   List<Object?> get props => [chatId, messageId, newBody];
 }
 
-class DeleteMessage extends MessagesEvent {
+class DeleteMessage extends ChatSessionEvent {
+  @override
   final String chatId;
   final String messageId;
   final bool forEveryone;
 
-  const DeleteMessage({required this.chatId, required this.messageId, required this.forEveryone});
+  const DeleteMessage({
+    required this.chatId,
+    required this.messageId,
+    required this.forEveryone,
+  });
 
   @override
   List<Object?> get props => [chatId, messageId, forEveryone];
 }
 
-class ForwardMessages extends MessagesEvent {
+class ForwardMessages extends ChatSessionEvent {
+  @override
   final String chatId;
   final List<String> messageIds;
 
@@ -113,7 +140,8 @@ class ForwardMessages extends MessagesEvent {
   List<Object?> get props => [chatId, messageIds];
 }
 
-class SendVideoMessage extends MessagesEvent {
+class SendVideoMessage extends ChatSessionEvent {
+  @override
   final String chatId;
   final String filePath;
   final Duration duration;
@@ -130,7 +158,8 @@ class SendVideoMessage extends MessagesEvent {
   List<Object?> get props => [chatId, filePath, duration, replyToMessageId];
 }
 
-class SendFileMessage extends MessagesEvent {
+class SendFileMessage extends ChatSessionEvent {
+  @override
   final String chatId;
   final String filePath;
   final String fileName;
@@ -146,5 +175,11 @@ class SendFileMessage extends MessagesEvent {
   });
 
   @override
-  List<Object?> get props => [chatId, filePath, fileName, typeContent, replyToMessageId];
+  List<Object?> get props => [
+    chatId,
+    filePath,
+    fileName,
+    typeContent,
+    replyToMessageId,
+  ];
 }

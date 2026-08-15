@@ -250,6 +250,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Offline'**
   String get contactOffline;
+
+  /// No description provided for @chatHistoryOfflineUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Chat history is unavailable offline until the first sync completes.'**
+  String get chatHistoryOfflineUnavailable;
+
+  /// No description provided for @messageDraftHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Message...'**
+  String get messageDraftHint;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' as foundation;
 import 'package:messenger/features/messages/presentation/widgets/persistent_emoji_picker.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:messenger/l10n/app_localizations.dart';
 import 'package:go_router/go_router.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
@@ -55,7 +56,7 @@ class _MessagesScreenState extends State<MessagesScreen>
   bool _isRecording = false;
   bool _isRecordingVideo = false;
   RecordingMode _recordingMode = RecordingMode.voice;
-  final CameraService _cameraService = sl<CameraService>();
+  late final ChatCameraService _cameraService;
   MessageModel? _replyingToMessage;
   final Map<String, GlobalKey> _messageKeys = {};
   String? _highlightedMessageId;
@@ -63,16 +64,19 @@ class _MessagesScreenState extends State<MessagesScreen>
   Timer? _recordTimer;
   bool _recordTimerFired = false;
   bool _isVideoRecordingCanceled = false;
+  bool _isResettingSession = false;
 
   DateTime? _lastReadSent;
 
   @override
   void initState() {
     super.initState();
+    _cameraService = context.read<ChatCameraService>();
     WidgetsBinding.instance.addObserver(this);
     context.read<MessagesBloc>().add(LoadMessages(widget.chatId));
 
     _textController.addListener(() {
+      if (_isResettingSession) return;
       final isNotEmpty = _textController.text.trim().isNotEmpty;
       if (isNotEmpty != _isSendButtonActive) {
         setState(() {
@@ -95,11 +99,28 @@ class _MessagesScreenState extends State<MessagesScreen>
   @override
   void dispose() {
     _recordTimer?.cancel();
+    _resetSessionState();
     WidgetsBinding.instance.removeObserver(this);
     _textController.dispose();
     _scrollController.dispose();
-    _cameraService.dispose();
     super.dispose();
+  }
+
+  void _resetSessionState() {
+    _isResettingSession = true;
+    _recordTimer?.cancel();
+    _textController.clear();
+    _isSendButtonActive = false;
+    _replyingToMessage = null;
+    _emojiVisible = false;
+    _isRecording = false;
+    _isRecordingVideo = false;
+    _recordTimerFired = false;
+    _isVideoRecordingCanceled = true;
+    _messageKeys.clear();
+    _highlightedMessageId = null;
+    _lastReadSent = null;
+    _isResettingSession = false;
   }
 
   @override
@@ -234,7 +255,7 @@ class _MessagesScreenState extends State<MessagesScreen>
     try {
       await _cameraService.initialize();
       if (_isVideoRecordingCanceled) {
-        _cameraService.dispose();
+        unawaited(_cameraService.reset());
         return;
       }
       await _cameraService.startRecording();
@@ -253,6 +274,7 @@ class _MessagesScreenState extends State<MessagesScreen>
   Future<void> _stopVideoRecording(bool send) async {
     _isVideoRecordingCanceled = true;
     final file = await _cameraService.stopRecording();
+    if (!mounted) return;
     setState(() {
       _isRecordingVideo = false;
     });
@@ -270,7 +292,7 @@ class _MessagesScreenState extends State<MessagesScreen>
         _replyingToMessage = null;
       });
     }
-    _cameraService.dispose();
+    await _cameraService.reset();
   }
 
   void _showAttachmentOptions() {
@@ -324,6 +346,7 @@ class _MessagesScreenState extends State<MessagesScreen>
   }
 
   void _handleFilePickerResult(FilePickerResult? result, String typeContent) {
+    if (!mounted) return;
     if (result != null && result.files.single.path != null) {
       context.read<MessagesBloc>().add(
         SendFileMessage(
@@ -977,8 +1000,9 @@ class _MessagesScreenState extends State<MessagesScreen>
                       return const Center(child: CircularProgressIndicator());
                     } else if (state is MessagesOfflineUnavailable) {
                       return ErrorDisplay(
-                        message:
-                            'История чата недоступна без подключения к сети',
+                        message: AppLocalizations.of(
+                          context,
+                        )!.chatHistoryOfflineUnavailable,
                         onRetry: () => context.read<MessagesBloc>().add(
                           LoadMessages(widget.chatId),
                         ),
@@ -1159,9 +1183,11 @@ class _MessagesScreenState extends State<MessagesScreen>
                             onSubmitted: (_) => _sendMessage(),
                             maxLines: null,
                             keyboardType: TextInputType.multiline,
-                            decoration: const InputDecoration(
-                              hintText: 'Message...',
-                              hintStyle: TextStyle(
+                            decoration: InputDecoration(
+                              hintText: AppLocalizations.of(
+                                context,
+                              )!.messageDraftHint,
+                              hintStyle: const TextStyle(
                                 color: AppColors.textTertiary,
                                 fontFamily: 'Inter',
                                 fontSize: 15,
@@ -1261,6 +1287,7 @@ class _MessagesScreenState extends State<MessagesScreen>
     }
 
     return Container(
+      key: const Key('message-reply-preview'),
       padding: const EdgeInsets.only(left: 12, right: 12, top: 10, bottom: 0),
       color: AppColors.bgPrimary,
       child: Row(

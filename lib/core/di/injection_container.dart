@@ -16,8 +16,6 @@ import '../../features/network/presentation/bloc/network_bloc.dart';
 import '../network/websocket_service.dart';
 import '../network/network_info.dart';
 import '../network/file_service.dart';
-import '../network/voice_recorder_service.dart';
-import '../network/camera_service.dart';
 import '../../features/auth/presentation/bloc/auth_event.dart';
 import '../../features/messages/data/datasources/messages_local_data_source.dart';
 import '../../features/chats/data/datasources/chats_local_data_source.dart';
@@ -115,8 +113,6 @@ Future<ConfigurationErrorState?> init() async {
   sl.registerLazySingleton<FileService>(
     () => FileService(sl<Dio>(instanceName: 'fileDio'), sl()),
   );
-  sl.registerLazySingleton<VoiceRecorderService>(() => VoiceRecorderService());
-  sl.registerLazySingleton<CameraService>(() => CameraService());
   sl.registerLazySingleton<MessagesLocalDataSource>(
     () => MessagesLocalDataSourceImpl(sl()),
   );
@@ -156,8 +152,8 @@ Future<ConfigurationErrorState?> init() async {
       sl<MessengerUserLookup>(),
     ),
   );
-  sl.registerFactory<MessagesBloc>(
-    () => MessagesBloc(
+  sl.registerFactoryParam<MessagesBloc, String, void>(
+    (chatId, _) => MessagesBloc(
       sl(instanceName: 'chatDio'),
       sl(),
       sl(),
@@ -165,6 +161,7 @@ Future<ConfigurationErrorState?> init() async {
       sl<UserService>(),
       sl<FileService>(),
       sl<MessagesLocalDataSource>(),
+      chatId: chatId,
     ),
   );
 

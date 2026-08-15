@@ -61,6 +61,10 @@ class _FakeNetworkInfo implements NetworkInfo {
 class _InMemoryMessagesLocalDataSource implements MessagesLocalDataSource {
   final Map<String, List<MessageModel>> _storage = {};
 
+  void seed(String chatId, List<MessageModel> messages) {
+    _storage[chatId] = List<MessageModel>.from(messages);
+  }
+
   @override
   Future<void> deleteMessage(String messageId) async {
     for (final entry in _storage.entries) {
@@ -148,6 +152,7 @@ void main() {
         UserService(Dio()),
         FileService(Dio(), profile),
         localDataSource,
+        chatId: 'chat-1',
       );
 
       final expectation = expectLater(
@@ -221,6 +226,7 @@ void main() {
         UserService(Dio()),
         FileService(Dio(), profile),
         localDataSource,
+        chatId: 'chat-1',
       );
 
       final expectation = expectLater(
@@ -240,6 +246,52 @@ void main() {
       final cachedMessages = await localDataSource.getMessages('chat-1');
       expect(cachedMessages, hasLength(1));
       expect(cachedMessages.single.chatId, 'chat-1');
+      await bloc.close();
+    },
+  );
+
+  test(
+    'a Chat Session ignores message actions owned by another chat',
+    () async {
+      final localDataSource = _InMemoryMessagesLocalDataSource()
+        ..seed('chat-1', <MessageModel>[
+          MessageModel(
+            id: 'message-1',
+            chatId: 'chat-1',
+            authorId: 'user-2',
+            text: 'Chat one history',
+            createdAt: DateTime.utc(2026, 4, 22, 10),
+            updatedAt: DateTime.utc(2026, 4, 22, 10),
+            status: MessageStatus.sent,
+          ),
+        ]);
+      final bloc = MessagesBloc(
+        Dio(),
+        WebSocketService(tokenStorage, _FakeNetworkInfo(false), profile),
+        tokenStorage,
+        _FakeNetworkInfo(false),
+        UserService(Dio()),
+        FileService(Dio(), profile),
+        localDataSource,
+        chatId: 'chat-1',
+      );
+
+      bloc.add(const LoadMessages('chat-1'));
+      await bloc.stream.firstWhere((state) => state is MessagesLoaded);
+
+      bloc.add(const SendMessage(chatId: 'chat-2', text: 'Must not leak'));
+      await Future<void>.delayed(Duration.zero);
+
+      final state = bloc.state as MessagesLoaded;
+      expect(state.chatId, 'chat-1');
+      expect(
+        state.messages.map((message) => message.chatId),
+        everyElement('chat-1'),
+      );
+      expect(
+        state.messages.map((message) => message.text),
+        isNot(contains('Must not leak')),
+      );
       await bloc.close();
     },
   );

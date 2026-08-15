@@ -184,7 +184,8 @@ settings, изменить каждое редактируемое поле Prof
 - **FR-011**: Chat list показывает title, latest-message preview, time и unread
   count, использует кешированный fallback и поддерживает pagination.
 - **FR-012**: Для каждого route Chat создаётся отдельный MessagesBloc и
-  screen-local state; media services остаются общими singleton-зависимостями.
+  screen-local state; camera и voice recording services создаются и
+  освобождаются в границах Chat Session.
 - **FR-013**: Непустой Message Timeline Cache восстанавливается по chat ID;
   любой неуспешный history refresh при пустом кеше приводит к
   `MessagesOfflineUnavailable`, включая backend и parsing errors при наличии
@@ -251,40 +252,38 @@ settings, изменить каждое редактируемое поле Prof
    ошибочно сообщать пользователю о проблеме с подключением.
 4. History pagination добавляет страницу без reconciliation, поэтому пересечение
    страниц может показать duplicate Messages.
-5. CameraService и VoiceRecorderService зарегистрированы как singleton. Выход из
-   Chat освобождает экран и camera, но активная voice recording не гарантированно
-   отменяется; поведение при switch Chat не покрыто тестом.
-6. Realtime duplicate delivery не устраняется перед добавлением Message в
+5. Realtime duplicate delivery не устраняется перед добавлением Message в
    видимую ленту.
-7. Успешный history refresh полностью заменяет строки Chat серверной страницей и
+6. Успешный history refresh полностью заменяет строки Chat серверной страницей и
    может удалить локальные `sending`/`failed` Messages.
-8. Успешный retry обновляет UI, но не гарантирует замену cached failed Message
+7. Успешный retry обновляет UI, но не гарантирует замену cached failed Message
    серверной версией после restart.
-9. UI показывает retry для любого собственного failed Message, включая
+8. UI показывает retry для любого собственного failed Message, включая
    Attachment, но `ResendMessage` всегда отправляет только текстовый `body` в
    messages endpoint. Retry медиа может отправить пустой текст вместо исходного
    Attachment.
-10. Group Chat screen закрывается до результата создания и не показывает ошибку
+9. Group Chat screen закрывается до результата создания и не показывает ошибку
    создания на исходном экране.
-11. Chat list не обрабатывает `message_status_changed`, а mark-read влияет на его
+10. Chat list не обрабатывает `message_status_changed`, а mark-read влияет на его
     unread count только после соответствующего realtime event.
-12. Direct Chat lookup/create не является атомарной server-side операцией;
+11. Direct Chat lookup/create не является атомарной server-side операцией;
     client-side защита блокирует повторы только внутри одного launch flow.
-13. Call/video controls вне Calls tab выглядят доступными, хотя ничего не делают.
-14. При наличии `.env` его значения сейчас имеют приоритет над Dart defines,
+12. Call/video controls вне Calls tab выглядят доступными, хотя ничего не делают.
+13. При наличии `.env` его значения сейчас имеют приоритет над Dart defines,
     несмотря на прежнее описание запуска только через `--dart-define`.
 
 ## Verification Record
 
 Проверка 2026-08-16 по Verification Commit:
 
-- `flutter test`: 38 tests passed;
+- `flutter test`: 42 tests passed;
 - `flutter analyze`: no issues found;
 - автоматизированы Runtime Environment validation, blocking configuration UI,
   cache serialization/reconciliation, empty-cache offline state,
   ContactChatLaunchBloc, Matched Contacts application state и localized
   loading/error/empty states, Profile cache/update, Auth logout, edit Profile UI
-  и lifecycle route-scoped `MessagesBloc`;
+  lifecycle route-scoped `MessagesBloc`, Chat Session media teardown и
+  localized first-sync offline-unavailable UX;
 - отсутствуют полноценные automated journeys для оставшихся auth, group
   creation, media lifecycle, realtime, pagination и полного switch Chat со
   сбросом reply/recording/Attachment state.

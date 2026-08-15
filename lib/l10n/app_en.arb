@@ -25,5 +25,7 @@
   "contactsPermissionDenied": "Contact permission is required",
   "noMatchedContacts": "No Messenger contacts found",
   "contactOnline": "Online",
-  "contactOffline": "Offline"
+  "contactOffline": "Offline",
+  "chatHistoryOfflineUnavailable": "Chat history is unavailable offline until the first sync completes.",
+  "messageDraftHint": "Message..."
 }

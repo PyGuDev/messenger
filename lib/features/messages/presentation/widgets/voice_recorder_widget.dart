@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../core/network/voice_recorder_service.dart';
-import '../../../../core/di/injection_container.dart';
 
 class VoiceRecorderWidget extends StatefulWidget {
   final void Function(String filePath, Duration duration) onSend;
@@ -18,8 +18,9 @@ class VoiceRecorderWidget extends StatefulWidget {
   State<VoiceRecorderWidget> createState() => _VoiceRecorderWidgetState();
 }
 
-class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget> with SingleTickerProviderStateMixin {
-  final VoiceRecorderService _recorderService = sl<VoiceRecorderService>();
+class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget>
+    with SingleTickerProviderStateMixin {
+  late final VoiceRecordingService _recorderService;
   late AnimationController _pulseController;
   Timer? _timer;
   Duration _duration = Duration.zero;
@@ -29,6 +30,7 @@ class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget> with SingleTi
   @override
   void initState() {
     super.initState();
+    _recorderService = context.read<VoiceRecordingService>();
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1000),
@@ -40,6 +42,7 @@ class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget> with SingleTi
   Future<void> _startRecording() async {
     try {
       await _recorderService.start();
+      if (!mounted) return;
       _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
         setState(() {
           _duration = Duration(seconds: timer.tick);
@@ -56,9 +59,9 @@ class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget> with SingleTi
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
         widget.onCancel();
       }
     }
@@ -161,6 +164,7 @@ class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget> with SingleTi
             GestureDetector(
               onTap: () async {
                 final path = await _recorderService.stop();
+                if (!mounted) return;
                 if (path != null) {
                   widget.onSend(path, _duration);
                 }

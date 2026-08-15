@@ -23,9 +23,21 @@ class MessagesBloc extends Bloc<MessagesEvent, MessagesState> {
   final UserService _userService;
   final FileService _fileService;
   final MessagesLocalDataSource _localDataSource;
+  final String chatId;
   StreamSubscription? _wsSubscription;
 
   String? _currentUserId;
+
+  bool _ownsChat(String eventChatId) => chatId == eventChatId;
+
+  void _onSessionEvent<E extends ChatSessionEvent>(
+    Future<void> Function(E event, Emitter<MessagesState> emit) handler,
+  ) {
+    on<E>((event, emit) async {
+      if (!_ownsChat(event.chatId)) return;
+      await handler(event, emit);
+    });
+  }
 
   MessagesBloc(
     this._dio,
@@ -34,30 +46,31 @@ class MessagesBloc extends Bloc<MessagesEvent, MessagesState> {
     this._networkInfo,
     this._userService,
     this._fileService,
-    this._localDataSource,
-  ) : super(MessagesInitial()) {
-    on<LoadMessages>(_onLoadMessages);
-    on<LoadMoreMessages>(_onLoadMoreMessages);
-    on<SendMessage>(_onSendMessage);
-    on<SendVoiceMessage>(_onSendVoiceMessage);
-    on<ResendMessage>(_onResendMessage);
-    on<MarkMessagesAsRead>(_onMarkMessagesAsRead);
+    this._localDataSource, {
+    required this.chatId,
+  }) : super(MessagesInitial(chatId)) {
+    _onSessionEvent<LoadMessages>(_onLoadMessages);
+    _onSessionEvent<LoadMoreMessages>(_onLoadMoreMessages);
+    _onSessionEvent<SendMessage>(_onSendMessage);
+    _onSessionEvent<SendVoiceMessage>(_onSendVoiceMessage);
+    _onSessionEvent<ResendMessage>(_onResendMessage);
+    _onSessionEvent<MarkMessagesAsRead>(_onMarkMessagesAsRead);
     on<OnWebSocketEvent>(_onWebSocketEvent);
-    on<EditMessage>(_onEditMessage);
-    on<DeleteMessage>(_onDeleteMessage);
-    on<ForwardMessages>(_onForwardMessages);
-    on<SendVideoMessage>(_onSendVideoMessage);
-    on<SendFileMessage>(_onSendFileMessage);
+    _onSessionEvent<EditMessage>(_onEditMessage);
+    _onSessionEvent<DeleteMessage>(_onDeleteMessage);
+    _onSessionEvent<ForwardMessages>(_onForwardMessages);
+    _onSessionEvent<SendVideoMessage>(_onSendVideoMessage);
+    _onSessionEvent<SendFileMessage>(_onSendFileMessage);
 
-    _wsSubscription = _wsService.events.listen((event) {
+    _wsSubscription = _wsService.eventsForChat(chatId).listen((event) {
       add(OnWebSocketEvent(event));
     });
   }
 
   @override
-  Future<void> close() {
-    _wsSubscription?.cancel();
-    return super.close();
+  Future<void> close() async {
+    await _wsSubscription?.cancel();
+    await super.close();
   }
 
   List<MessageModel> _reconcileMessages(
@@ -140,10 +153,10 @@ class MessagesBloc extends Bloc<MessagesEvent, MessagesState> {
           ),
         );
       } else {
-        emit(MessagesLoading());
+        emit(MessagesLoading(chatId));
       }
     } catch (e) {
-      emit(MessagesLoading());
+      emit(MessagesLoading(chatId));
     }
 
     // 2. Fetch from network and update cache
@@ -152,7 +165,7 @@ class MessagesBloc extends Bloc<MessagesEvent, MessagesState> {
       if (!isConnected) {
         final cachedMessages = await _localDataSource.getMessages(event.chatId);
         if (cachedMessages.isEmpty) {
-          emit(MessagesOfflineUnavailable(event.chatId));
+          emit(MessagesOfflineUnavailable(chatId));
         }
         return;
       }
@@ -196,9 +209,9 @@ class MessagesBloc extends Bloc<MessagesEvent, MessagesState> {
       if (state is! MessagesLoaded) {
         final cachedMessages = await _localDataSource.getMessages(event.chatId);
         if (cachedMessages.isEmpty) {
-          emit(MessagesOfflineUnavailable(event.chatId));
+          emit(MessagesOfflineUnavailable(chatId));
         } else {
-          emit(MessagesError(e.toString()));
+          emit(MessagesError(chatId, e.toString()));
         }
       }
     }

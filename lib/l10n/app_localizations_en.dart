@@ -85,4 +85,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get contactOffline => 'Offline';
+
+  @override
+  String get chatHistoryOfflineUnavailable => 'Chat history is unavailable offline until the first sync completes.';
+
+  @override
+  String get messageDraftHint => 'Message...';
 }

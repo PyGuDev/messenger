@@ -39,7 +39,16 @@ class WebSocketService {
   }
 
   Stream<Map<String, dynamic>> get events => _eventController!.stream;
+  Stream<Map<String, dynamic>> eventsForChat(String chatId) =>
+      events.where((event) => _chatIdForEvent(event) == chatId);
   Stream<WebSocketStatus> get status => _statusController!.stream;
+
+  String? _chatIdForEvent(Map<String, dynamic> event) {
+    final payload = event['payload'];
+    if (payload is! Map) return null;
+    return (payload['chat_id'] ?? payload['ChatID'] ?? payload['chatId'])
+        ?.toString();
+  }
 
   Future<void> connect() async {
     _log('connect requested');

@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/network/camera_service.dart';
-import '../../../../core/di/injection_container.dart';
 
 class VideoRecordingOverlay extends StatefulWidget {
   final VoidCallback onCancel;
@@ -21,13 +21,14 @@ class VideoRecordingOverlay extends StatefulWidget {
 }
 
 class _VideoRecordingOverlayState extends State<VideoRecordingOverlay> {
-  final CameraService _cameraService = sl<CameraService>();
+  late final ChatCameraService _cameraService;
   Timer? _timer;
   Duration _duration = Duration.zero;
 
   @override
   void initState() {
     super.initState();
+    _cameraService = context.read<ChatCameraService>();
     _startTimer();
   }
 
@@ -74,7 +75,8 @@ class _VideoRecordingOverlayState extends State<VideoRecordingOverlay> {
                 ),
                 padding: const EdgeInsets.all(8),
                 child: ClipOval(
-                  child: (_cameraService.isSwitching ||
+                  child:
+                      (_cameraService.isSwitching ||
                           controller == null ||
                           !controller.value.isInitialized)
                       ? Container(
@@ -101,7 +103,10 @@ class _VideoRecordingOverlayState extends State<VideoRecordingOverlay> {
               const SizedBox(height: 24),
               // Timer Badge
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.black,
                   borderRadius: BorderRadius.circular(16),
@@ -139,13 +144,17 @@ class _VideoRecordingOverlayState extends State<VideoRecordingOverlay> {
                   children: [
                     // Cancel
                     GestureDetector(
-                      onTap: _cameraService.isSwitching ? null : widget.onCancel,
+                      onTap: _cameraService.isSwitching
+                          ? null
+                          : widget.onCancel,
                       child: Container(
                         width: 56,
                         height: 56,
                         decoration: BoxDecoration(
                           color: _cameraService.isSwitching
-                              ? const Color(0xFF3B1A1A) // Dark red-brown instead of alpha
+                              ? const Color(
+                                  0xFF3B1A1A,
+                                ) // Dark red-brown instead of alpha
                               : const Color(0xFFFF3B30),
                           borderRadius: BorderRadius.circular(28),
                         ),
@@ -167,7 +176,9 @@ class _VideoRecordingOverlayState extends State<VideoRecordingOverlay> {
                         height: 80,
                         decoration: BoxDecoration(
                           color: _cameraService.isSwitching
-                              ? const Color(0xFF1A1A3B) // Dark blue instead of alpha
+                              ? const Color(
+                                  0xFF1A1A3B,
+                                ) // Dark blue instead of alpha
                               : const Color(0xFF573AFE),
                           borderRadius: BorderRadius.circular(40),
                         ),
@@ -188,7 +199,9 @@ class _VideoRecordingOverlayState extends State<VideoRecordingOverlay> {
                     const SizedBox(width: 20),
                     // Switch Camera
                     GestureDetector(
-                      onTap: _cameraService.isSwitching ? null : widget.onSwitchCamera,
+                      onTap: _cameraService.isSwitching
+                          ? null
+                          : widget.onSwitchCamera,
                       child: Container(
                         width: 56,
                         height: 56,

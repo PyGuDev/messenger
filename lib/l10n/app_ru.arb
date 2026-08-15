@@ -25,5 +25,7 @@
   "contactsPermissionDenied": "Разрешите доступ к контактам",
   "noMatchedContacts": "Контакты Messenger не найдены",
   "contactOnline": "В сети",
-  "contactOffline": "Не в сети"
+  "contactOffline": "Не в сети",
+  "chatHistoryOfflineUnavailable": "История чата недоступна без подключения до завершения первой синхронизации.",
+  "messageDraftHint": "Сообщение..."
 }

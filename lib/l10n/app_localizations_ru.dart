@@ -85,4 +85,10 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get contactOffline => 'Не в сети';
+
+  @override
+  String get chatHistoryOfflineUnavailable => 'История чата недоступна без подключения до завершения первой синхронизации.';
+
+  @override
+  String get messageDraftHint => 'Сообщение...';
 }

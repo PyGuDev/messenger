@@ -10,6 +10,8 @@ import '../../features/auth/presentation/screens/register_screen.dart';
 import '../../features/auth/presentation/screens/splash_screen.dart';
 import '../../features/messages/presentation/screens/messages_screen.dart';
 import '../../features/messages/presentation/bloc/messages_bloc.dart';
+import '../network/camera_service.dart';
+import '../network/voice_recorder_service.dart';
 import '../../features/chats/presentation/screens/create_group_chat_screen.dart';
 import '../../features/chats/presentation/screens/select_contact_screen.dart';
 import '../../features/chats/presentation/bloc/contact_chat_launch_bloc.dart';
@@ -39,14 +41,29 @@ class GoRouterRefreshStream extends ChangeNotifier {
 
 Widget buildChatSession({
   required String chatId,
-  required MessagesBloc Function() createMessagesBloc,
+  required MessagesBloc Function(String chatId) createMessagesBloc,
   required Widget child,
+  ChatCameraService Function()? createCameraService,
+  VoiceRecordingService Function()? createVoiceRecordingService,
 }) {
   return KeyedSubtree(
     key: ValueKey<String>('chat-session:$chatId'),
-    child: BlocProvider<MessagesBloc>(
-      create: (_) => createMessagesBloc(),
-      child: child,
+    child: MultiRepositoryProvider(
+      providers: [
+        RepositoryProvider<ChatCameraService>(
+          create: (_) => createCameraService?.call() ?? CameraService(),
+          dispose: (service) => unawaited(service.dispose()),
+        ),
+        RepositoryProvider<VoiceRecordingService>(
+          create: (_) =>
+              createVoiceRecordingService?.call() ?? VoiceRecorderService(),
+          dispose: (service) => unawaited(service.dispose()),
+        ),
+      ],
+      child: BlocProvider<MessagesBloc>(
+        create: (_) => createMessagesBloc(chatId),
+        child: child,
+      ),
     ),
   );
 }
@@ -104,7 +121,7 @@ final router = GoRouter(
         final isGroup = state.uri.queryParameters['isGroup'] == 'true';
         return buildChatSession(
           chatId: chatId,
-          createMessagesBloc: () => sl<MessagesBloc>(),
+          createMessagesBloc: (chatId) => sl<MessagesBloc>(param1: chatId),
           child: MessagesScreen(chatId: chatId, title: title, isGroup: isGroup),
         );
       },
