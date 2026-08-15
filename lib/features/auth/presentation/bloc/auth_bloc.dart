@@ -1,5 +1,8 @@
+import 'dart:developer' as developer;
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:dio/dio.dart';
+import 'package:messenger/core/cache/profile_cache.dart';
 import 'package:messenger/core/security/token_storage.dart';
 import '../../../../core/network/websocket_service.dart';
 import 'auth_event.dart';
@@ -9,16 +12,20 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final Dio _dio;
   final TokenStorage _tokenStorage;
   final WebSocketService _wsService;
+  final ProfileCache _profileCache;
 
-  AuthBloc(this._dio, this._tokenStorage, this._wsService) : super(AuthInitial()) {
+  AuthBloc(this._dio, this._tokenStorage, this._wsService, this._profileCache)
+    : super(AuthInitial()) {
     on<CheckAuthStatus>(_onCheckAuthStatus);
     on<LoginRequested>(_onLoginRequested);
     on<RegisterRequested>(_onRegisterRequested);
     on<LogoutRequested>(_onLogoutRequested);
   }
 
-
-  Future<void> _onCheckAuthStatus(CheckAuthStatus event, Emitter<AuthState> emit) async {
+  Future<void> _onCheckAuthStatus(
+    CheckAuthStatus event,
+    Emitter<AuthState> emit,
+  ) async {
     try {
       final token = await _tokenStorage.getAccessToken();
       if (token != null) {
@@ -32,20 +39,23 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     }
   }
 
-  Future<void> _onLoginRequested(LoginRequested event, Emitter<AuthState> emit) async {
+  Future<void> _onLoginRequested(
+    LoginRequested event,
+    Emitter<AuthState> emit,
+  ) async {
     emit(AuthLoading());
     try {
-      final response = await _dio.post('/auth/signin', data: {
-        'email': event.email,
-        'password': event.password,
-      });
-      
+      final response = await _dio.post(
+        '/auth/signin',
+        data: {'email': event.email, 'password': event.password},
+      );
+
       final responseData = response.data;
       final data = responseData['data'] ?? responseData;
       final accessToken = data['access_token'];
       final refreshToken = data['refresh_token'];
       final userId = (data['user_id'] ?? data['id']).toString();
-      
+
       await _tokenStorage.saveTokens(accessToken, refreshToken);
       await _tokenStorage.saveUserId(userId);
       _wsService.connect();
@@ -64,24 +74,30 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     }
   }
 
-  Future<void> _onRegisterRequested(RegisterRequested event, Emitter<AuthState> emit) async {
+  Future<void> _onRegisterRequested(
+    RegisterRequested event,
+    Emitter<AuthState> emit,
+  ) async {
     emit(AuthLoading());
     try {
-      final response = await _dio.post('/auth/signup', data: {
-        'email': event.email,
-        'firstName': event.firstName,
-        'lastName': event.lastName,
-        'password': event.password,
-        'confirmPassword': event.confirmPassword,
-        'phone': event.phone,
-      });
-      
+      final response = await _dio.post(
+        '/auth/signup',
+        data: {
+          'email': event.email,
+          'firstName': event.firstName,
+          'lastName': event.lastName,
+          'password': event.password,
+          'confirmPassword': event.confirmPassword,
+          'phone': event.phone,
+        },
+      );
+
       final responseData = response.data;
       final data = responseData['data'] ?? responseData;
       final accessToken = data['access_token'];
       final refreshToken = data['refresh_token'];
       final userId = (data['user_id'] ?? data['id']).toString();
-      
+
       await _tokenStorage.saveTokens(accessToken, refreshToken);
       await _tokenStorage.saveUserId(userId);
       _wsService.connect();
@@ -98,8 +114,24 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     }
   }
 
-  Future<void> _onLogoutRequested(LogoutRequested event, Emitter<AuthState> emit) async {
+  Future<void> _onLogoutRequested(
+    LogoutRequested event,
+    Emitter<AuthState> emit,
+  ) async {
     emit(AuthLoading());
+    try {
+      final userId = (await _tokenStorage.getUserId())?.trim();
+      if (userId != null && userId.isNotEmpty) {
+        await _profileCache.remove(userId);
+      }
+    } catch (error, stackTrace) {
+      developer.log(
+        'Profile cache cleanup failed during logout',
+        name: 'AuthBloc',
+        error: error.runtimeType,
+        stackTrace: stackTrace,
+      );
+    }
     await _tokenStorage.clearTokens();
     _wsService.disconnect();
     emit(AuthUnauthenticated());

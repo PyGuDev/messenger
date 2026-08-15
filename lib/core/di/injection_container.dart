@@ -24,6 +24,7 @@ import '../../features/chats/data/datasources/chats_local_data_source.dart';
 import '../local/database_provider.dart';
 import '../local/database_helper.dart';
 import '../cache/media_cache_service.dart';
+import '../cache/profile_cache.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -41,6 +42,9 @@ Future<ConfigurationErrorState?> init() async {
   sl.registerLazySingleton<NetworkInfo>(() => NetworkInfoImpl(sl()));
   sl.registerLazySingleton<DatabaseHelper>(() => DatabaseHelper());
   sl.registerLazySingleton<DatabaseProvider>(() => sl<DatabaseHelper>());
+  sl.registerLazySingleton<ProfileCache>(
+    () => SharedPreferencesProfileCache(sl()),
+  );
 
   final environmentProfile = RuntimeEnvironmentProfile.fromEnvironment();
   final configurationError = environmentProfile.validate();
@@ -118,10 +122,10 @@ Future<ConfigurationErrorState?> init() async {
   // Bloc
   sl.registerFactory<NetworkBloc>(() => NetworkBloc(sl()));
   sl.registerLazySingleton<AuthBloc>(
-    () => AuthBloc(sl(instanceName: 'authDio'), sl(), sl()),
+    () => AuthBloc(sl(instanceName: 'authDio'), sl(), sl(), sl()),
   );
   sl.registerFactory<ProfileBloc>(
-    () => ProfileBloc(sl(instanceName: 'authDio'), sl()),
+    () => ProfileBloc(sl(instanceName: 'authDio'), sl(), sl()),
   );
   sl.registerLazySingleton<ChatsBloc>(
     () => ChatsBloc(

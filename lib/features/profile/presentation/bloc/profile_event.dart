@@ -9,6 +9,15 @@ abstract class ProfileEvent extends Equatable {
 
 class LoadProfile extends ProfileEvent {}
 
+class CachedProfileInvalidated extends ProfileEvent {
+  final String userId;
+
+  const CachedProfileInvalidated(this.userId);
+
+  @override
+  List<Object?> get props => <Object?>[userId];
+}
+
 class UpdateProfile extends ProfileEvent {
   final String? firstName;
   final String? lastName;

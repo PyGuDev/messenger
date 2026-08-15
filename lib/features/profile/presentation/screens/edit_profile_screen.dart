@@ -46,26 +46,31 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   void _onSave() {
-    context.read<ProfileBloc>().add(UpdateProfile(
-      firstName: _firstNameController.text,
-      lastName: _lastNameController.text,
-      phone: _phoneController.text,
-      email: _emailController.text,
-    ));
+    context.read<ProfileBloc>().add(
+      UpdateProfile(
+        firstName: _firstNameController.text,
+        lastName: _lastNameController.text,
+        phone: _phoneController.text,
+        email: _emailController.text,
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return BlocListener<ProfileBloc, ProfileState>(
       listener: (context, state) {
-        if (state is ProfileLoaded) {
+        if (state is ProfileUpdateSuccess) {
           context.pop();
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Профиль обновлен')));
+        } else if (state is ProfileUpdateFailure || state is ProfileError) {
+          final message = state is ProfileUpdateFailure
+              ? state.message
+              : (state as ProfileError).message;
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Профиль обновлен')),
-          );
-        } else if (state is ProfileError) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.message), backgroundColor: AppColors.error),
+            SnackBar(content: Text(message), backgroundColor: AppColors.error),
           );
         }
       },
@@ -93,8 +98,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         ),
         body: BlocBuilder<ProfileBloc, ProfileState>(
           builder: (context, state) {
-            final isLoading = state is ProfileLoading;
-            
+            final isLoading = state is ProfileUpdateInProgress;
+
             return Column(
               children: [
                 const Divider(height: 1, color: AppColors.borderDefault),
@@ -133,19 +138,40 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             ],
                           ),
                         ),
-                        const Divider(height: 1, color: AppColors.borderDefault),
+                        const Divider(
+                          height: 1,
+                          color: AppColors.borderDefault,
+                        ),
                         // Form
                         Padding(
                           padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
                           child: Column(
                             children: [
-                              _buildFormField('Имя', 'Введите имя...', _firstNameController),
+                              _buildFormField(
+                                'Имя',
+                                'Введите имя...',
+                                _firstNameController,
+                              ),
                               const SizedBox(height: 20),
-                              _buildFormField('Фамилия', 'Введите фамилию...', _lastNameController),
+                              _buildFormField(
+                                'Фамилия',
+                                'Введите фамилию...',
+                                _lastNameController,
+                              ),
                               const SizedBox(height: 20),
-                              _buildFormField('Телефон', '+7 (___) ___-__-__', _phoneController, keyboardType: TextInputType.phone),
+                              _buildFormField(
+                                'Телефон',
+                                '+7 (___) ___-__-__',
+                                _phoneController,
+                                keyboardType: TextInputType.phone,
+                              ),
                               const SizedBox(height: 20),
-                              _buildFormField('Email', 'Введите email...', _emailController, keyboardType: TextInputType.emailAddress),
+                              _buildFormField(
+                                'Email',
+                                'Введите email...',
+                                _emailController,
+                                keyboardType: TextInputType.emailAddress,
+                              ),
                             ],
                           ),
                         ),
@@ -171,10 +197,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             const SizedBox(
                               width: 20,
                               height: 20,
-                              child: CircularProgressIndicator(color: AppColors.textOnAccent, strokeWidth: 2),
+                              child: CircularProgressIndicator(
+                                color: AppColors.textOnAccent,
+                                strokeWidth: 2,
+                              ),
                             )
                           else ...[
-                            const Icon(Icons.save, color: AppColors.textOnAccent, size: 20),
+                            const Icon(
+                              Icons.save,
+                              color: AppColors.textOnAccent,
+                              size: 20,
+                            ),
                             const SizedBox(width: 8),
                             const Text(
                               'Сохранить',
@@ -199,7 +232,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  Widget _buildFormField(String label, String hint, TextEditingController controller, {TextInputType? keyboardType}) {
+  Widget _buildFormField(
+    String label,
+    String hint,
+    TextEditingController controller, {
+    TextInputType? keyboardType,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
