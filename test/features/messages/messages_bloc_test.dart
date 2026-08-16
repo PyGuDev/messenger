@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
@@ -122,6 +123,19 @@ class _InMemoryMessagesLocalDataSource implements MessagesLocalDataSource {
         entry.value[index] = entry.value[index].copyWith(status: status);
       }
     }
+  }
+}
+
+class _FakeFileService extends FileService {
+  _FakeFileService(RuntimeEnvironmentProfile profile) : super(Dio(), profile);
+
+  @override
+  Future<UploadResponse> uploadFile(String filePath, String fileName) async {
+    return UploadResponse(
+      accessKey: 'video-access-key',
+      fileId: 'file-1',
+      isDuplicate: false,
+    );
   }
 }
 
@@ -293,6 +307,213 @@ void main() {
         isNot(contains('Must not leak')),
       );
       await bloc.close();
+    },
+  );
+
+  test(
+    'sends a video Attachment and replaces its optimistic Message with sent state',
+    () async {
+      final requests = <Map<String, dynamic>>[];
+      final dio = Dio()
+        ..interceptors.add(
+          InterceptorsWrapper(
+            onRequest: (options, handler) {
+              if (options.method == 'GET') {
+                handler.resolve(
+                  Response(
+                    requestOptions: options,
+                    statusCode: 200,
+                    data: {
+                      'status': 'ok',
+                      'data': {'messages': <Map<String, dynamic>>[]},
+                    },
+                  ),
+                );
+                return;
+              }
+
+              requests.add(Map<String, dynamic>.from(options.data as Map));
+              handler.resolve(
+                Response(
+                  requestOptions: options,
+                  statusCode: 201,
+                  data: {
+                    'data': {
+                      'id': 'server-video-message',
+                      'chat_id': 'chat-1',
+                      'author_id': 'user-1',
+                      'body': '',
+                      'client_message_id': options.data['client_message_id'],
+                      'created_at': '2026-08-16T09:00:00Z',
+                      'attached_content': [
+                        {
+                          'id': 'video-1',
+                          'type_content': 'video',
+                          'access_key': 'video-access-key',
+                          'file_name': 'video.mp4',
+                          'file_size': 3,
+                          'mime_type': 'video/mp4',
+                        },
+                      ],
+                    },
+                  },
+                ),
+              );
+            },
+          ),
+        );
+      final file = File('${Directory.systemTemp.path}/messages_bloc_video.mp4');
+      await file.writeAsBytes(<int>[0, 1, 2]);
+      addTearDown(() => file.delete());
+
+      final bloc = MessagesBloc(
+        dio,
+        WebSocketService(tokenStorage, _FakeNetworkInfo(true), profile),
+        tokenStorage,
+        _FakeNetworkInfo(true),
+        UserService(Dio()),
+        _FakeFileService(profile),
+        _InMemoryMessagesLocalDataSource(),
+        chatId: 'chat-1',
+      );
+      addTearDown(bloc.close);
+
+      bloc.add(const LoadMessages('chat-1'));
+      await bloc.stream.firstWhere((state) => state is MessagesLoaded);
+
+      final sentState = bloc.stream
+          .where((state) => state is MessagesLoaded)
+          .cast<MessagesLoaded>()
+          .firstWhere(
+            (state) => state.messages.any(
+              (message) =>
+                  message.id == 'server-video-message' &&
+                  message.status == MessageStatus.sent,
+            ),
+          );
+      bloc.add(
+        SendVideoMessage(
+          chatId: 'chat-1',
+          filePath: file.path,
+          duration: const Duration(seconds: 1),
+        ),
+      );
+
+      final state = await sentState;
+      expect(requests, hasLength(1));
+      expect(requests.single['body'], '');
+      expect((requests.single['attached_content'] as List).single, {
+        'type_content': 'video',
+        'access_key': 'video-access-key',
+        'file_name': 'messages_bloc_video.mp4',
+        'file_size': 3,
+        'mime_type': 'video/mp4',
+      });
+      expect(
+        state.messages
+            .singleWhere((message) => message.id == 'server-video-message')
+            .attachedContent
+            .single
+            .localPath,
+        file.path,
+      );
+    },
+  );
+
+  test(
+    'marks an optimistic video Message as failed when Chat API rejects it',
+    () async {
+      final requests = <Map<String, dynamic>>[];
+      final dio = Dio()
+        ..interceptors.add(
+          InterceptorsWrapper(
+            onRequest: (options, handler) {
+              if (options.method == 'GET') {
+                handler.resolve(
+                  Response(
+                    requestOptions: options,
+                    statusCode: 200,
+                    data: {
+                      'status': 'ok',
+                      'data': {'messages': <Map<String, dynamic>>[]},
+                    },
+                  ),
+                );
+                return;
+              }
+
+              requests.add(Map<String, dynamic>.from(options.data as Map));
+              handler.reject(
+                DioException(
+                  requestOptions: options,
+                  response: Response(
+                    requestOptions: options,
+                    statusCode: 422,
+                    data: {
+                      'status': 'error',
+                      'error': {
+                        'code': 'CHAT.VALIDATION_ERROR',
+                        'message': 'body or attached_content is required',
+                      },
+                    },
+                  ),
+                  type: DioExceptionType.badResponse,
+                ),
+              );
+            },
+          ),
+        );
+      final file = File(
+        '${Directory.systemTemp.path}/messages_bloc_rejected_video.mp4',
+      );
+      await file.writeAsBytes(<int>[0, 1, 2]);
+      addTearDown(() => file.delete());
+
+      final bloc = MessagesBloc(
+        dio,
+        WebSocketService(tokenStorage, _FakeNetworkInfo(true), profile),
+        tokenStorage,
+        _FakeNetworkInfo(true),
+        UserService(Dio()),
+        _FakeFileService(profile),
+        _InMemoryMessagesLocalDataSource(),
+        chatId: 'chat-1',
+      );
+      addTearDown(bloc.close);
+
+      bloc.add(const LoadMessages('chat-1'));
+      await bloc.stream.firstWhere((state) => state is MessagesLoaded);
+
+      final failedState = bloc.stream
+          .where((state) => state is MessagesLoaded)
+          .cast<MessagesLoaded>()
+          .firstWhere(
+            (state) => state.messages.any(
+              (message) =>
+                  message.status == MessageStatus.failed &&
+                  message.attachedContent.single.typeContent == 'video',
+            ),
+          );
+      bloc.add(
+        SendVideoMessage(
+          chatId: 'chat-1',
+          filePath: file.path,
+          duration: const Duration(seconds: 1),
+        ),
+      );
+
+      final state = await failedState;
+      expect(requests, hasLength(1));
+      expect(requests.single['body'], '');
+      expect(requests.single['attached_content'], isNotEmpty);
+      expect(
+        state.messages
+            .singleWhere((message) => message.status == MessageStatus.failed)
+            .attachedContent
+            .single
+            .localPath,
+        file.path,
+      );
     },
   );
 }
