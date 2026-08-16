@@ -19,5 +19,13 @@
   "logoutConfirmation": "Are you sure you want to logout?",
   "createChat": "Create Chat",
   "enterUserId": "Enter User ID",
-  "invalidCredentials": "Invalid email or password"
+  "invalidCredentials": "Invalid email or password",
+  "unknownContact": "Unknown",
+  "contactsLoadFailed": "Could not load contacts",
+  "contactsPermissionDenied": "Contact permission is required",
+  "noMatchedContacts": "No Messenger contacts found",
+  "contactOnline": "Online",
+  "contactOffline": "Offline",
+  "chatHistoryOfflineUnavailable": "Chat history is unavailable offline until the first sync completes.",
+  "messageDraftHint": "Message..."
 }

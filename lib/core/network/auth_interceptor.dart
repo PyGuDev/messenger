@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import '../security/token_storage.dart';
 
 /// Handles 401 errors by refreshing the access token.
@@ -12,7 +13,11 @@ class AuthInterceptor extends Interceptor {
   bool _isRefreshing = false;
   Completer<String?>? _refreshCompleter;
 
-  AuthInterceptor(this._tokenStorage, this._refreshDio, {required this.onTokenExpired});
+  AuthInterceptor(
+    this._tokenStorage,
+    this._refreshDio, {
+    required this.onTokenExpired,
+  });
 
   @override
   void onRequest(
@@ -29,28 +34,28 @@ class AuthInterceptor extends Interceptor {
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) async {
     if (err.response?.statusCode == 401) {
-      print('[AuthInterceptor] 401 Detected. Attempting token refresh...');
-      
+      _log('401 received, attempting token refresh');
+
       try {
         final newToken = await _refreshToken();
         if (newToken != null) {
-          print('[AuthInterceptor] Refresh successful. Retrying original request.');
+          _log('token refresh succeeded, retrying original request');
           // Retry the original request with the new token
           final options = err.requestOptions;
           options.headers['Authorization'] = 'Bearer $newToken';
-          
+
           // Create a temporary dio instance with the same base URL for the retry
           final retryDio = Dio(BaseOptions(baseUrl: options.baseUrl));
           final retryResponse = await retryDio.fetch(options);
-          
+
           return handler.resolve(retryResponse);
         } else {
-          print('[AuthInterceptor] Refresh returned null token. Proceeding with error.');
+          _log('token refresh returned no token');
           await _tokenStorage.clearTokens();
           onTokenExpired();
         }
       } catch (e) {
-        print('[AuthInterceptor] Refresh failed with error: $e');
+        _log('token refresh failed: $e');
         // Refresh failed — clear tokens and potentially redirect to login
         await _tokenStorage.clearTokens();
         onTokenExpired();
@@ -92,6 +97,12 @@ class AuthInterceptor extends Interceptor {
       rethrow;
     } finally {
       _isRefreshing = false;
+    }
+  }
+
+  void _log(String message) {
+    if (kDebugMode) {
+      debugPrint('[AuthInterceptor] $message');
     }
   }
 }

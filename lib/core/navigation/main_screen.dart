@@ -7,7 +7,7 @@ import 'package:messenger/features/chats/presentation/screens/chats_screen.dart'
 import 'package:messenger/features/contacts/presentation/screens/contacts_screen.dart';
 import 'package:messenger/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:messenger/features/auth/presentation/bloc/auth_state.dart';
-import 'package:messenger/features/profile/presentation/screens/profile_screen.dart';
+import 'package:messenger/features/profile/presentation/screens/settings_screen.dart';
 import 'package:go_router/go_router.dart';
 
 class MainScreen extends StatefulWidget {
@@ -24,7 +24,7 @@ class _MainScreenState extends State<MainScreen> {
     const ContactsScreen(),
     const ChatsScreen(),
     const _CallsPlaceholder(),
-    const ProfileScreen(),
+    const SettingsScreen(),
   ];
 
   @override

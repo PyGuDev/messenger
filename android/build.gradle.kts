@@ -19,6 +19,16 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
+subprojects {
+    if (name == "camera_android_camerax") {
+        pluginManager.withPlugin("com.android.library") {
+            // CameraX declares this type-signature dependency as runtime-only,
+            // but javac needs it while compiling the Flutter camera plugin.
+            dependencies.add("implementation", "androidx.concurrent:concurrent-futures:1.1.0")
+        }
+    }
+}
+
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }

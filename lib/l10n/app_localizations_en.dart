@@ -67,4 +67,28 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get invalidCredentials => 'Invalid email or password';
+
+  @override
+  String get unknownContact => 'Unknown';
+
+  @override
+  String get contactsLoadFailed => 'Could not load contacts';
+
+  @override
+  String get contactsPermissionDenied => 'Contact permission is required';
+
+  @override
+  String get noMatchedContacts => 'No Messenger contacts found';
+
+  @override
+  String get contactOnline => 'Online';
+
+  @override
+  String get contactOffline => 'Offline';
+
+  @override
+  String get chatHistoryOfflineUnavailable => 'Chat history is unavailable offline until the first sync completes.';
+
+  @override
+  String get messageDraftHint => 'Message...';
 }

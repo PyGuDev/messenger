@@ -1,22 +1,34 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 class UserProfile {
+  final String id;
   final String firstName;
   final String lastName;
   final String phone;
+  final String email;
 
   const UserProfile({
+    this.id = '',
     required this.firstName,
     required this.lastName,
     required this.phone,
+    required this.email,
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
     return UserProfile(
+      id:
+          (json['id'] as String?) ??
+          (json['ID'] as String?) ??
+          (json['userId'] as String?) ??
+          (json['userID'] as String?) ??
+          '',
       firstName: (json['firstName'] as String?) ?? '',
       lastName: (json['lastName'] as String?) ?? '',
       phone: (json['phone'] as String?) ?? '',
+      email: (json['email'] as String?) ?? '',
     );
   }
 
@@ -71,11 +83,59 @@ class UserService {
       _cache[userId] = profile;
       return profile;
     } catch (e) {
-      return const UserProfile(firstName: '', lastName: '', phone: '');
+      return const UserProfile(
+        firstName: '',
+        lastName: '',
+        phone: '',
+        email: '',
+      );
+    }
+  }
+
+  Future<List<UserProfile>> searchUser({String? phone, String? email}) async {
+    try {
+      final queryParams = <String, dynamic>{};
+      if (phone != null && phone.isNotEmpty) queryParams['phone'] = phone;
+      if (email != null && email.isNotEmpty) queryParams['email'] = email;
+
+      if (queryParams.isEmpty) return [];
+
+      final response = await _dio.get(
+        '/users/search',
+        queryParameters: queryParams,
+        options: Options(responseType: ResponseType.plain),
+      );
+      final rawBody = response.data as String;
+      _log('searchUser response received');
+
+      // Parse the raw JSON manually
+      final dynamic data;
+      try {
+        data = jsonDecode(rawBody);
+      } catch (e) {
+        _log('failed to parse searchUser response: $e');
+        return [];
+      }
+
+      if (data is List) {
+        final results = data
+            .map((e) => UserProfile.fromJson(e as Map<String, dynamic>))
+            .toList();
+        return results;
+      }
+      return [];
+    } catch (_) {
+      return [];
     }
   }
 
   void clearCache() {
     _cache.clear();
+  }
+
+  void _log(String message) {
+    if (kDebugMode) {
+      debugPrint('[UserService] $message');
+    }
   }
 }

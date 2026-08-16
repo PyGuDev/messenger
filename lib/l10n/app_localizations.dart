@@ -214,6 +214,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Invalid email or password'**
   String get invalidCredentials;
+
+  /// No description provided for @unknownContact.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown'**
+  String get unknownContact;
+
+  /// No description provided for @contactsLoadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load contacts'**
+  String get contactsLoadFailed;
+
+  /// No description provided for @contactsPermissionDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'Contact permission is required'**
+  String get contactsPermissionDenied;
+
+  /// No description provided for @noMatchedContacts.
+  ///
+  /// In en, this message translates to:
+  /// **'No Messenger contacts found'**
+  String get noMatchedContacts;
+
+  /// No description provided for @contactOnline.
+  ///
+  /// In en, this message translates to:
+  /// **'Online'**
+  String get contactOnline;
+
+  /// No description provided for @contactOffline.
+  ///
+  /// In en, this message translates to:
+  /// **'Offline'**
+  String get contactOffline;
+
+  /// No description provided for @chatHistoryOfflineUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Chat history is unavailable offline until the first sync completes.'**
+  String get chatHistoryOfflineUnavailable;
+
+  /// No description provided for @messageDraftHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Message...'**
+  String get messageDraftHint;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

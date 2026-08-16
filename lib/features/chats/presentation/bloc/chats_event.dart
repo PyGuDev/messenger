@@ -20,6 +20,16 @@ class CreateChat extends ChatsEvent {
   List<Object?> get props => [userId];
 }
 
+class CreateGroupChat extends ChatsEvent {
+  final String title;
+  final List<String> memberIds;
+
+  const CreateGroupChat(this.title, this.memberIds);
+
+  @override
+  List<Object?> get props => [title, memberIds];
+}
+
 class OnWebSocketEvent extends ChatsEvent {
   final Map<String, dynamic> event;
   const OnWebSocketEvent(this.event);
