@@ -16,8 +16,9 @@ contacts, profile, and network state.
 
 - State changes belong in BLoC flows, not in widgets.
 - Contract changes must update the relevant files in `docs/` in the same change.
-- Changes to business logic, persistence, navigation, or integrations require
-  automated test updates in `test/`.
+- Changes to business logic, persistence, or navigation require automated test
+  updates in `test/`; platform integrations require either such tests or a
+  platform build-smoke check wired into CI.
 - New feature work should preserve the existing feature-first structure.
 
 ## Documentation
@@ -53,3 +54,19 @@ flutter run \
 If one of these values is missing or malformed, the app renders a blocking
 configuration error screen before authenticated networking, chat loading, or
 file transfer flows begin.
+
+## Verification
+
+Run the Dart checks from the repository root:
+
+```bash
+flutter analyze
+flutter test
+```
+
+After updating Android camera or media dependencies, also compile the debug
+APK. This checks the Kotlin, Media3, CameraX, and Gradle integration together:
+
+```bash
+./tool/verify_android_build.sh
+```

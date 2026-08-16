@@ -42,7 +42,7 @@ class MainActivity : FlutterActivity() {
             mediaItems.add(EditedMediaItem.Builder(mediaItem).build())
         }
 
-        val sequence = EditedMediaItemSequence(mediaItems)
+        val sequence = EditedMediaItemSequence.Builder(mediaItems).build()
         val composition = Composition.Builder(listOf(sequence)).build()
 
         val transformer = Transformer.Builder(this)
